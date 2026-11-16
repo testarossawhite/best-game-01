@@ -1,18 +1,38 @@
-// STARFORGE DEFENSE — deterministic screenshot scenes. ?shot=title|play|
-// upgrade|victory stages a real frame of the live game (real towers, real
-// enemies, real HUD) and freezes the simulation, so screenshots are
+// STARFORGE DEFENSE 3D — deterministic screenshot scenes. Each ?shot=
+// stages a real state of the live game (real towers, real enemies, real
+// HUD and panels) and freezes the simulation, so the screenshots are
 // reproducible renders of the game's own code, never edited images.
+//   title   -> the title screen over a quiet defence
+//   intel   -> mid-battle, the NEW HOSTILE card for the Bulwark's debut
+//   upgrade -> mid-battle, the specialization panel open on a Mortar
+//   victory -> the results screen after stage 50, defence intact
 import { PLOTS, ECONOMY } from './config.js';
 import { pathPointAt } from './map.js';
 import { createTower, upgradeTower, applySpec } from './towers.js';
 import { spawnEnemy } from './enemies.js';
-import { burst, shockRing, floatText } from './particles.js';
+import { burst, shockRing, floatText } from './fx.js';
+
+function placeTower(state, type, plot, level, spec) {
+  const tower = createTower(type, plot, PLOTS[plot]);
+  for (let i = 0; i < level; i++) upgradeTower(tower);
+  if (spec) applySpec(tower, spec);
+  tower.angle = -0.6;
+  state.towers.push(tower);
+  return tower;
+}
+
+function marcher(state, type, at, hurt = 0) {
+  const e = spawnEnemy(state, type, at);
+  const pos = pathPointAt(at);
+  e.x = pos.x;
+  e.y = pos.y;
+  e.angle = pos.angle;
+  if (hurt) e.hp = Math.round(e.maxHp * (1 - hurt));
+  return e;
+}
 
 function stageBattle(state, wave, gold, lives, score, kills) {
-  // The state is already fresh at load; set it playing directly (startGame
-  // would swap in a new object and strand these mutations).
   state.mode = 'playing';
-  state.interWave = ECONOMY.interWaveSeconds;
   state.wave = wave;
   state.waveActive = true;
   state.gold = gold;
@@ -20,128 +40,94 @@ function stageBattle(state, wave, gold, lives, score, kills) {
   state.score = score;
   state.kills = kills;
   state.stats.goldEarned = 640;
-  state.time = 8.5; // a photogenic phase for the star's rotation and flares
-  state.starfall.charge = 62; // the meter, mid-charge, in the shop bar
-  // A lived-in defence: one of each tower — the Bolt is a maxed Railgun,
-  // the Tesla a maxed Storm coil; both specializations show on the field.
-  const plan = [
-    { type: 'bolt', plot: 2, level: 2, spec: 'rail' },
-    { type: 'frost', plot: 6, level: 0 },
-    { type: 'mortar', plot: 9, level: 1 },
-    { type: 'tesla', plot: 10, level: 2, spec: 'storm' },
-    { type: 'bolt', plot: 13, level: 0 },
-  ];
-  for (const p of plan) {
-    const tower = createTower(p.type, p.plot, PLOTS[p.plot]);
-    for (let i = 0; i < p.level; i++) upgradeTower(tower);
-    if (p.spec) applySpec(tower, p.spec);
-    tower.angle = -0.6;
-    state.towers.push(tower);
-  }
-  state.towers[0].flash = 0.09; // railgun muzzle flash, frozen mid-blast
-  state.towers[3].arcTimer = 0.1; // storm orb flaring
-  // Enemies mid-march at staggered distances, a few already hurt — with a
-  // Splitter and its Mites up front and the dreadnought closing on the core.
-  const march = [
-    { type: 'grunt', at: 420, hurt: 0.35 },
-    { type: 'runner', at: 560, hurt: 0 },
-    { type: 'splitter', at: 716, hurt: 0.3 },
-    { type: 'mite', at: 684, hurt: 0 },
-    { type: 'mite', at: 660, hurt: 0 },
-    { type: 'shielded', at: 800, hurt: 0.2 },
-    { type: 'tank', at: 920, hurt: 0.45 },
-    { type: 'runner', at: 1030, hurt: 0 },
-    { type: 'boss', at: 1305, hurt: 0.25 },
-  ];
-  for (const m of march) {
-    const e = spawnEnemy(state, m.type);
-    e.distance = m.at;
-    const pos = pathPointAt(m.at);
-    e.x = pos.x;
-    e.y = pos.y;
-    e.angle = pos.angle;
-    e.hp = Math.round(e.maxHp * (1 - m.hurt));
-    if (m.type === 'shielded') e.shield = Math.round(e.maxShield * 0.5);
-  }
-  // A shell arcing in with a smoke trail, a rail lance spearing the line,
-  // a tesla arc frozen mid-chain, and a STARFALL fragment mid-descent.
+  state.time = 8.5; // a photogenic phase of the star's rotation
+  state.starfall.charge = 62;
+  const bolt = placeTower(state, 'bolt', 2, 2, 'rail');
+  placeTower(state, 'frost', 6, 0, null);
+  const mortar = placeTower(state, 'mortar', 9, 1, null);
+  placeTower(state, 'tesla', 10, 2, 'storm');
+  placeTower(state, 'bolt', 13, 0, null);
+  // Constructs mid-march: a Splitter and its Mites up front, a
+  // Shieldbearer glowing, the Dreadnought closing on the star.
+  marcher(state, 'grunt', 420, 0.35);
+  marcher(state, 'runner', 560);
+  marcher(state, 'splitter', 716, 0.3);
+  marcher(state, 'mite', 684);
+  marcher(state, 'mite', 660);
+  const shielded = marcher(state, 'shielded', 800, 0.2);
+  shielded.shield = Math.round(shielded.maxShield * 0.6);
+  marcher(state, 'tank', 920, 0.45);
+  marcher(state, 'runner', 1030);
+  marcher(state, 'boss', 1305, 0.25);
+  // A shell arcing in, a rail lance on its line, a tesla arc mid-chain,
+  // and a STARFALL fragment streaking down.
   state.projectiles.push({
-    kind: 'shell', x: 665, y: 305, tx: 590, ty: 430, target: null,
-    speed: 300, damage: 58, splash: 78, color: '#f4845f', radius: 7, arc: 0.7,
-    cluster: 0, burnDps: 0, burnSecs: 0,
-    trail: [{ x: 700, y: 268 }, { x: 688, y: 280 }, { x: 676, y: 292 }, { x: 665, y: 305 }],
+    kind: 'shell', x: mortar.x, y: mortar.y, tx: 590, ty: 430, target: null,
+    speed: 300, damage: 58, splash: 78, cluster: 0, burnDps: 0, burnSecs: 0,
+    arc: 0, flight: 0.62, t: 0.3,
   });
+  const target = state.enemies[0];
+  const a = Math.atan2(target.y - bolt.y, target.x - bolt.x);
   state.projectiles.push({
-    kind: 'rail', x: 252, y: 208, dx: -0.78, dy: -0.63, travelled: 130, maxDist: 185,
-    speed: 900, damage: 58, color: '#7df9ff', radius: 6, hitIds: new Set(),
-    trail: [{ x: 307, y: 252 }, { x: 289, y: 237 }, { x: 270, y: 222 }, { x: 252, y: 208 }],
+    kind: 'rail', x: bolt.x + Math.cos(a) * 60, y: bolt.y + Math.sin(a) * 60,
+    dx: Math.cos(a), dy: Math.sin(a), travelled: 60, maxDist: 185,
+    speed: 900, damage: 58, hitIds: new Set(),
   });
+  const tesla = state.towers[3];
   state.fx.arcs.push({
-    points: [{ x: 890, y: 360 }, { x: 865, y: 430 }],
+    points: [{ x: tesla.x, y: tesla.y, top: true }, { x: shielded.x, y: shielded.y }],
     life: 0.14, maxLife: 0.14,
   });
-  state.starfallEvents.push({ x: 865, y: 430, t: 0.17, struck: false });
+  state.starfallEvents.push({ x: shielded.x, y: shielded.y, t: 0.17, struck: false });
   burst(state.fx, 600, 420, '#ffd166', 10, 90);
   burst(state.fx, 516, 170, '#48cae4', 8, 70);
   shockRing(state.fx, 600, 420, '#ffb35c', 60);
-  floatText(state.fx, 516, 148, '+8g', '#ffd166');
-  floatText(state.fx, 872, 372, '+16g', '#ffd166');
+  floatText(state.fx, 516, 148, '+8⛃', '#ffd166');
+  floatText(state.fx, 872, 372, '+16⛃', '#ffd166');
   floatText(state.fx, 238, 168, '58', '#ffffff');
+  return { bolt, mortar, tesla };
 }
 
 export function applyShot(state, shot) {
   if (shot === 'title') {
     state.mode = 'title';
     state.time = 3.2;
-    // A quiet defence behind the title so the field reads at a glance.
-    const t1 = createTower('bolt', 2, PLOTS[2]);
-    upgradeTower(t1);
-    const t2 = createTower('frost', 6, PLOTS[6]);
-    const t3 = createTower('mortar', 9, PLOTS[9]);
-    upgradeTower(t3);
-    upgradeTower(t3);
-    applySpec(t3, 'cluster');
-    state.towers.push(t1, t2, t3);
+    const t1 = placeTower(state, 'bolt', 2, 1, null);
+    t1.angle = -1.1;
+    placeTower(state, 'frost', 6, 0, null);
+    placeTower(state, 'mortar', 9, 2, 'cluster');
     return;
   }
-  if (shot === 'play') {
+  if (shot === 'intel') {
     stageBattle(state, 7, 342, 18, 1250, 87);
-    state.banner = { title: 'WAVE 7', sub: 'Splitters inbound — splash ready', life: 1.15, maxLife: 1.7 };
+    state.waveActive = false;
+    state.mode = 'intel';
+    state.intelType = 'tank';
+    state.intelBoss = false;
     return;
   }
   if (shot === 'upgrade') {
-    stageBattle(state, 8, 420, 17, 1640, 104);
-    // Open the panel on the level-2 Mortar: the specialization choice.
-    const mortar = state.towers.find((t) => t.type === 'mortar');
+    const { mortar } = stageBattle(state, 8, 420, 17, 1640, 104);
     mortar.level = 2;
     state.selectedTower = mortar;
-    state.mouse = { x: 700, y: 260 };
+    state.banner = { title: 'STAGE 8', sub: 'Bulwarks on the conduit — splash ready', life: 1.15, maxLife: 1.7 };
     return;
   }
   if (shot === 'victory') {
-    state.mode = 'playing';
-    state.wave = ECONOMY.maxWave;
-    state.kills = 312;
-    state.score = 6950;
+    state.wave = ECONOMY.maxStage;
+    state.kills = 812;
+    state.score = 24850;
     state.lives = 14;
     state.gold = 512;
-    state.stats.goldEarned = 2840;
+    state.stats.goldEarned = 6840;
     state.stats.leaks = 3;
-    state.stats.time = 754;
+    state.stats.time = 2310;
     state.time = 5.1;
     state.mode = 'victory';
-    // The winning defence, standing intact behind the results panel.
-    for (const p of [
-      { type: 'bolt', plot: 2, level: 2, spec: 'rail' },
-      { type: 'frost', plot: 6, level: 1 },
-      { type: 'mortar', plot: 9, level: 2, spec: 'cluster' },
-      { type: 'tesla', plot: 10, level: 2, spec: 'storm' },
-    ]) {
-      const tower = createTower(p.type, p.plot, PLOTS[p.plot]);
-      for (let i = 0; i < p.level; i++) upgradeTower(tower);
-      if (p.spec) applySpec(tower, p.spec);
-      state.towers.push(tower);
-    }
+    placeTower(state, 'bolt', 2, 2, 'rail');
+    placeTower(state, 'frost', 6, 1, null);
+    placeTower(state, 'mortar', 9, 2, 'cluster');
+    placeTower(state, 'tesla', 10, 2, 'storm');
     return;
   }
 }

@@ -3,17 +3,195 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>STARFORGE DEFENSE — a tower defense game</title>
+<title>STARFORGE DEFENSE — a 3D tower defense</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1020; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #04050d;
+    font-family: system-ui, 'Segoe UI', sans-serif; color: #eef2ff;
+    -webkit-user-select: none; user-select: none; }
   #game { position: fixed; inset: 0; display: block; touch-action: none; cursor: crosshair; }
-  /* Read aloud, never shown: the status line screen readers announce. */
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .glass { background: rgba(8, 10, 18, 0.88); border: 1px solid rgba(120, 150, 220, 0.28);
+    border-radius: 10px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5); }
+  /* ---------- top HUD ---------- */
+  #hud { position: fixed; top: 0; left: 0; right: 0; height: 54px; display: flex; align-items: center;
+    gap: 18px; padding: 0 16px; background: linear-gradient(180deg, rgba(6,8,16,0.94), rgba(6,8,16,0.78));
+    border-bottom: 1px solid rgba(255, 158, 44, 0.35); z-index: 5; }
+  #hud .logo { font-weight: 800; letter-spacing: 1.5px; font-size: 17px; color: #ffd9a0; white-space: nowrap; }
+  #hud .logo b { color: #ff9e2c; }
+  #hud .stat { font-size: 15px; white-space: nowrap; }
+  #hud .stat span { color: #9fb4dd; font-size: 11px; letter-spacing: 1px; display: block; line-height: 1; }
+  #hud .stat strong { font-size: 17px; }
+  #hud .spacer { flex: 1; }
+  .hbtn { background: #171c2a; color: #eef2ff; border: 1px solid #3a4a6b; border-radius: 8px;
+    font-size: 15px; padding: 6px 11px; cursor: pointer; }
+  .hbtn:hover { border-color: #ffb35c; color: #ffd9a0; }
+  #bossbar { position: fixed; top: 54px; left: 0; right: 0; height: 16px; z-index: 5; display: none;
+    background: rgba(20, 4, 10, 0.85); border-bottom: 1px solid rgba(255, 46, 109, 0.5); }
+  #bossbar .fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff2e6d, #ff7b00); transition: width 0.2s; }
+  #bossbar .tag { position: absolute; inset: 0; text-align: center; font-size: 11px; letter-spacing: 3px; color: #ffd9e2; line-height: 16px; }
+  /* ---------- banner + story caption ---------- */
+  #banner { position: fixed; top: 84px; left: 50%; transform: translateX(-50%); text-align: center;
+    z-index: 4; pointer-events: none; opacity: 0; transition: opacity 0.25s; }
+  #banner h2 { margin: 0; font-size: 34px; letter-spacing: 4px; color: #ffd9a0; text-shadow: 0 2px 18px rgba(255, 123, 0, 0.65); }
+  #banner p { margin: 4px 0 0; font-size: 14.5px; color: #cfe0ff; text-shadow: 0 1px 8px #000; max-width: 760px; }
+  /* ---------- bottom shop ---------- */
+  #shop { position: fixed; left: 50%; transform: translateX(-50%); bottom: 10px; z-index: 5;
+    display: flex; gap: 10px; align-items: stretch; padding: 10px; }
+  #wavebox { width: 218px; padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; }
+  #wavebox .next { font-size: 12px; color: #9fb4dd; letter-spacing: 0.6px; min-height: 28px; }
+  #wavebox .next b { color: #eef2ff; }
+  #callbtn { background: linear-gradient(180deg, #ff9e2c, #e06f00); border: 0; color: #1a0e00; font-weight: 800;
+    font-size: 15px; letter-spacing: 1px; border-radius: 8px; padding: 9px 0; cursor: pointer; }
+  #callbtn:disabled { filter: grayscale(0.8); opacity: 0.45; cursor: default; }
+  .card { width: 128px; padding: 8px 10px; cursor: pointer; border-radius: 10px; position: relative; }
+  .card h3 { margin: 0; font-size: 14.5px; letter-spacing: 0.5px; }
+  .card p { margin: 3px 0 0; font-size: 11.5px; color: #9fb4dd; line-height: 1.35; min-height: 30px; }
+  .card .cost { color: #ffd166; font-weight: 700; font-size: 13.5px; }
+  .card .key { position: absolute; top: 6px; right: 8px; color: #5f739e; font-size: 11px; }
+  .card.picked { outline: 2px solid #ffb35c; }
+  .card.poor { opacity: 0.45; }
+  #starfallBtn { width: 118px; padding: 8px 10px; cursor: pointer; border-radius: 10px; text-align: left; }
+  #starfallBtn h3 { margin: 0; font-size: 14.5px; color: #ffd166; }
+  #starfallBtn p { margin: 3px 0 6px; font-size: 11.5px; color: #9fb4dd; line-height: 1.35; }
+  #starfallBtn .meter { height: 8px; background: #10182c; border-radius: 4px; overflow: hidden; }
+  #starfallBtn .meter i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #ff9e2c, #ffd166); }
+  #starfallBtn.ready { outline: 2px solid #ffd166; animation: pulseGlow 1.1s infinite; }
+  #starfallBtn.armed { background: rgba(80, 50, 4, 0.92); }
+  @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 4px rgba(255, 209, 102, 0.4); } 50% { box-shadow: 0 0 18px rgba(255, 209, 102, 0.9); } }
+  /* ---------- tower panel / choice panels ---------- */
+  .panel { position: fixed; z-index: 6; padding: 14px 16px; width: 348px; }
+  #towerPanel { right: 14px; top: 70px; display: none; }
+  .panel h3 { margin: 0 0 2px; font-size: 17px; color: #ffd9a0; }
+  .panel .sub { font-size: 12.5px; color: #9fb4dd; margin: 0 0 8px; line-height: 1.45; }
+  .panel .stats { font-size: 13px; line-height: 1.7; color: #dfe8ff; }
+  .panel .stats b { color: #ffd166; }
+  .pbtn { display: block; width: 100%; margin-top: 8px; background: #1d2740; color: #eef2ff; border: 1px solid #3a4a6b;
+    border-radius: 8px; padding: 8px 10px; font-size: 13.5px; cursor: pointer; text-align: left; }
+  .pbtn:hover:not(:disabled) { border-color: #ffb35c; }
+  .pbtn:disabled { opacity: 0.45; cursor: default; }
+  .pbtn small { display: block; color: #9fb4dd; font-size: 11.5px; margin-top: 2px; }
+  .pbtn .c { color: #ffd166; font-weight: 700; float: right; }
+  #choices { position: fixed; inset: 0; z-index: 7; display: none; align-items: center; justify-content: center;
+    background: rgba(3, 4, 10, 0.45); }
+  #choices .box { width: 720px; max-width: 94vw; padding: 20px 22px; text-align: center; }
+  #choices h2 { margin: 0; font-size: 26px; letter-spacing: 3px; color: #ffd9a0; }
+  #choices .lede { color: #cfe0ff; font-size: 14px; margin: 6px 0 16px; }
+  #choiceRow { display: flex; gap: 12px; justify-content: center; }
+  .choice { flex: 1; padding: 14px 12px; cursor: pointer; border-radius: 10px; text-align: center; }
+  .choice:hover { outline: 2px solid #ffb35c; }
+  .choice .icon { font-size: 30px; }
+  .choice h4 { margin: 6px 0 4px; font-size: 15.5px; color: #ffd9a0; }
+  .choice p { margin: 0; font-size: 12.5px; color: #9fb4dd; line-height: 1.45; }
+  #intelCard .box { width: 460px; }
+  #intelCard h2 { color: #ff8fa8; }
+  #intelCard .trait { color: #e8ecff; font-size: 15px; line-height: 1.55; margin: 8px 0 4px; }
+  #intelCard .hint { color: #9fb4dd; font-size: 12px; margin: 0 0 14px; }
+  .bigbtn { background: linear-gradient(180deg, #ff9e2c, #e06f00); border: 0; color: #1a0e00; font-weight: 800;
+    font-size: 16px; letter-spacing: 1.5px; border-radius: 9px; padding: 11px 34px; cursor: pointer; }
+  .bigbtn.ghost { background: #1d2740; color: #eef2ff; border: 1px solid #3a4a6b; }
+  /* ---------- title / end screens ---------- */
+  .screen { position: fixed; inset: 0; z-index: 8; display: none; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 68% 42%, rgba(0,0,0,0) 30%, rgba(2,3,8,0.55) 100%); }
+  .screen .box { text-align: center; max-width: 640px; padding: 28px 36px; }
+  .screen h1 { margin: 0; font-size: 58px; letter-spacing: 6px; line-height: 1.02;
+    background: linear-gradient(180deg, #fff3d6, #ffb35c 55%, #e06f00); -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 0 42px rgba(255, 140, 30, 0.25); }
+  .screen h1 small { display: block; font-size: 25px; letter-spacing: 14px; }
+  .screen .premise { margin: 18px auto 6px; font-size: 15.5px; line-height: 1.65; color: #dfe8ff; }
+  .screen .controls { color: #9fb4dd; font-size: 12.5px; margin: 12px 0 20px; line-height: 1.6; }
+  .statgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 26px; margin: 16px auto 20px; max-width: 380px;
+    font-size: 15px; text-align: left; }
+  .statgrid b { color: #ffd166; float: right; }
+  #endScreen h1 { font-size: 40px; letter-spacing: 4px; }
+  #leakFlash { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at 78% 45%, rgba(255, 40, 60, 0) 40%, rgba(255, 40, 60, 0.4) 100%); }
+  #lowLight { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity 0.6s;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(10, 0, 0, 0.55) 100%); }
+  #helpPanel { left: 50%; top: 50%; transform: translate(-50%, -50%); width: 520px; display: none; z-index: 9; }
+  #helpPanel p { font-size: 13.5px; line-height: 1.65; color: #dfe8ff; margin: 6px 0; }
+  #helpPanel b { color: #ffd166; }
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Starforge Defense: build towers on the marked plots to stop 20 waves of enemies reaching the core"></canvas>
+<canvas id="game" aria-label="Starforge Defense: build forge towers along the molten conduit and stop the void constructs reaching the star"></canvas>
 <p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud">
+  <div class="logo">★ STARFORGE <b>DEFENSE</b></div>
+  <div class="stat"><span>STARSHARDS</span><strong id="hGold">0⛃</strong></div>
+  <div class="stat"><span>STARLIGHT</span><strong id="hLives">100%</strong></div>
+  <div class="stat"><span>STAGE</span><strong id="hStage">–</strong></div>
+  <div class="stat"><span>SCORE</span><strong id="hScore">0</strong></div>
+  <div class="spacer"></div>
+  <button class="hbtn" id="pauseBtn" title="Pause (P)">⏸</button>
+  <button class="hbtn" id="speedBtn" title="Game speed">⏩ 1×</button>
+  <button class="hbtn" id="muteBtn" title="Sound (M)">🔊</button>
+  <button class="hbtn" id="helpBtn" title="Help">?</button>
+</div>
+<div id="bossbar"><div class="fill" id="bossFill"></div><div class="tag">⚠ DREADNOUGHT ⚠</div></div>
+
+<div id="banner"><h2 id="bannerTitle"></h2><p id="bannerSub"></p></div>
+<div id="leakFlash"></div>
+<div id="lowLight"></div>
+
+<div id="shop" class="glass">
+  <div id="wavebox">
+    <div class="next" id="waveNext">The conduit glows. The void is coming.</div>
+    <button id="callbtn">CALL STAGE ▸</button>
+  </div>
+  <div id="cards" style="display:flex; gap:10px;"></div>
+  <button id="starfallBtn" class="glass">
+    <h3>★ STARFALL</h3>
+    <p>The star hurls its own fire down the conduit.</p>
+    <div class="meter"><i id="starMeter"></i></div>
+  </button>
+</div>
+
+<div id="towerPanel" class="panel glass"></div>
+
+<div id="choices"><div class="box glass">
+  <h2 id="choiceTitle">STAGE CLEAR</h2>
+  <p class="lede" id="choiceLede"></p>
+  <div id="choiceRow"></div>
+</div></div>
+
+<div id="intelCard" class="screen"><div class="box glass">
+  <h2 id="intelTitle">⚠ NEW HOSTILE ⚠</h2>
+  <p class="trait" id="intelName"></p>
+  <p class="trait" id="intelTrait" style="color:#cfe0ff;"></p>
+  <p class="hint">Its construct turns on the display pedestal at the deck's edge. Study it — then hold the conduit.</p>
+  <button class="bigbtn" id="intelBtn">HOLD THE LINE ▸</button>
+</div></div>
+
+<div id="titleScreen" class="screen"><div class="box glass">
+  <h1>STARFORGE<small>DEFENSE</small></h1>
+  <p class="premise" id="premiseText"></p>
+  <p class="controls">Click a shop card, then a glowing pad to build. Click a tower to upgrade it — at level 3, choose its specialization.<br>
+  Keys 1–4 select towers · F arms STARFALL · Space calls the next stage · P pauses · 50 stages stand between the void and the star.</p>
+  <button class="bigbtn" id="startBtn">BEGIN THE WATCH ▸</button>
+</div></div>
+
+<div id="endScreen" class="screen"><div class="box glass">
+  <h1 id="endTitle"></h1>
+  <p class="premise" id="endText"></p>
+  <div class="statgrid" id="endStats"></div>
+  <button class="bigbtn" id="endlessBtn" style="display:none;">HOLD THE LINE — ENDLESS ▸</button>
+  <button class="bigbtn ghost" id="restartBtn">NEW WATCH</button>
+</div></div>
+
+<div id="helpPanel" class="panel glass">
+  <h3>Forge Warden's Handbook</h3>
+  <p><b>The star</b> burns at the conduit's end. Void constructs ride the molten path inward to drink its light. Every leak tears starlight out — at 0%, the star goes dark.</p>
+  <p><b>Towers</b> are forged along the path: Bolt (fast shots), Frost (slows), Mortar (splash), Tesla (chain lightning). Upgrade twice, then pick a specialization.</p>
+  <p><b>Stage rewards:</b> after each stage, the forge refines what the star sheds — pick 1 of 3 gifts.</p>
+  <p><b>STARFALL:</b> kills gather flare. At full charge, press F or the STARFALL button, then click the conduit — the star itself answers, hurling a fragment of its own fire.</p>
+  <p><b>Calling a stage early</b> pays bonus shards. Selling a tower refunds 70%.</p>
+  <button class="pbtn" id="helpClose">Close</button>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

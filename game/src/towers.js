@@ -1,19 +1,13 @@
-// STARFORGE DEFENSE — towers: build, upgrade, specialize, sell, aim and
-// fire. A tower lives on a plot, picks the furthest-along enemy in range,
-// and fires projectiles (or instant chain lightning) on its cooldown.
-// At level 3 the player picks ONE specialization branch per tower; the
-// branch's mods reshape the level-3 stat block (see effectiveStats).
+// STARFORGE DEFENSE 3D — towers: build, upgrade, specialize, sell, aim
+// and fire. A tower stands on a plot, picks the furthest-along enemy in
+// range, and fires projectiles (or instant chain lightning). At level 3
+// the player chooses ONE specialization; stage-reward buffs (state.buffs)
+// multiply damage / range per type and fire rate globally.
 import { TOWER_TYPES, TOWER_SPECS } from './config.js';
 
 let nextTowerId = 1;
 
-export function towerStats(typeKey, level) {
-  return TOWER_TYPES[typeKey].levels[level];
-}
-
-// The stat block a tower actually fights with: its level stats plus the
-// defaults for mechanics no base level carries, plus its specialization.
-export function effectiveStats(tower) {
+export function effectiveStats(tower, buffs) {
   const base = TOWER_TYPES[tower.type].levels[tower.level];
   const stats = {
     damage: base.damage, range: base.range, rate: base.rate,
@@ -29,6 +23,11 @@ export function effectiveStats(tower) {
         else stats[k] = v;
       }
     }
+  }
+  if (buffs) {
+    stats.damage = Math.round(stats.damage * (buffs.dmg[tower.type] || 1));
+    stats.range = Math.round(stats.range * (buffs.rng[tower.type] || 1));
+    stats.rate = Math.round(stats.rate * (buffs.rateAll || 1) * 100) / 100;
   }
   return stats;
 }
@@ -76,14 +75,9 @@ export function createTower(typeKey, plotIndex, plot) {
     id: nextTowerId++,
     type: typeKey,
     plotIndex,
-    x: plot.x,
-    y: plot.y,
-    level: 0,
-    spec: null,
-    cooldown: 0,
-    angle: -Math.PI / 2,
-    flash: 0,
-    arcTimer: 0,
+    x: plot.x, y: plot.y,
+    level: 0, spec: null,
+    cooldown: 0, angle: -Math.PI / 2, flash: 0, arcTimer: 0,
   };
 }
 
@@ -93,9 +87,8 @@ export function upgradeTower(tower) {
   return true;
 }
 
-// Furthest-along enemy inside the tower's range, or null.
-export function pickTarget(tower, enemies) {
-  const stats = effectiveStats(tower);
+export function pickTarget(tower, enemies, buffs) {
+  const stats = effectiveStats(tower, buffs);
   let best = null;
   let bestDist = -1;
   for (const e of enemies) {
@@ -111,103 +104,64 @@ export function pickTarget(tower, enemies) {
 
 function fireBolt(tower, target, stats, state) {
   const sx = tower.x;
-  const sy = tower.y - 14;
+  const sy = tower.y;
   if (stats.pierce) {
-    // Railgun: a starlight lance on a locked line — it spears through
-    // every enemy standing on that line, each one hit exactly once.
     const a = Math.atan2(target.y - sy, target.x - sx);
     state.projectiles.push({
-      kind: 'rail',
-      x: sx, y: sy,
-      dx: Math.cos(a), dy: Math.sin(a),
-      travelled: 0,
-      maxDist: stats.range + 30,
-      speed: 900,
-      damage: stats.damage,
-      color: '#7df9ff',
-      radius: 6,
-      hitIds: new Set(),
-      trail: [],
+      kind: 'rail', x: sx, y: sy, dx: Math.cos(a), dy: Math.sin(a),
+      travelled: 0, maxDist: stats.range + 30, speed: 900,
+      damage: stats.damage, hitIds: new Set(),
     });
     return;
   }
   state.projectiles.push({
-    kind: 'bolt',
-    x: sx,
-    y: sy,
-    target,
-    speed: 520,
-    damage: stats.damage,
-    splash: 0,
-    color: '#7df9ff',
-    radius: 4,
-    trail: [],
+    kind: 'bolt', x: sx, y: sy, target, speed: 520,
+    damage: stats.damage, splash: 0,
   });
 }
 
 function fireMortar(tower, target, stats, state) {
   state.projectiles.push({
-    kind: 'shell',
-    x: tower.x,
-    y: tower.y - 16,
-    tx: target.x,
-    ty: target.y,
-    target,
-    speed: 300,
-    damage: stats.damage,
-    splash: stats.splash,
-    color: '#f4845f',
-    radius: 7,
-    arc: 0,
-    cluster: stats.cluster,
-    burnDps: stats.burnDps,
-    burnSecs: stats.burnSecs,
-    trail: [],
+    kind: 'shell', x: tower.x, y: tower.y, tx: target.x, ty: target.y,
+    target, speed: 300, damage: stats.damage, splash: stats.splash,
+    cluster: stats.cluster, burnDps: stats.burnDps, burnSecs: stats.burnSecs,
+    arc: 0, flight: Math.max(0.35, Math.hypot(target.x - tower.x, target.y - tower.y) / 300),
+    t: 0,
   });
 }
 
 function fireFrost(tower, target, stats, state) {
   state.projectiles.push({
-    kind: 'frost',
-    x: tower.x,
-    y: tower.y - 14,
-    target,
-    speed: 420,
-    damage: stats.damage,
-    splash: stats.splash,
-    color: '#aee9ff',
-    radius: 5,
-    slowPct: stats.slowPct,
-    slowSecs: stats.slowSecs,
-    trail: [],
+    kind: 'frost', x: tower.x, y: tower.y, target, speed: 420,
+    damage: stats.damage, splash: stats.splash,
+    slowPct: stats.slowPct, slowSecs: stats.slowSecs,
   });
 }
 
-// Tesla lightning hits instantly and chains to nearby enemies.
 function fireTesla(tower, first, stats, state) {
   const hit = [first];
   let from = first;
-  let damage = stats.damage;
   while (hit.length < stats.chain) {
     let next = null;
     let nextD = stats.chainJump;
     for (const e of state.enemies) {
       if (e.dead || hit.includes(e)) continue;
       const d = Math.hypot(e.x - from.x, e.y - from.y);
-      if (d < nextD) {
-        next = e;
-        nextD = d;
-      }
+      if (d < nextD) { next = e; nextD = d; }
     }
     if (!next) break;
     hit.push(next);
     from = next;
   }
+  let damage = stats.damage;
   for (const e of hit) {
     state.damageEnemy(e, damage, 'tesla');
     damage = Math.max(4, Math.round(damage * 0.8));
   }
-  state.fx.arcs.push({ points: [ { x: tower.x, y: tower.y - 18 }, ...hit.map((e) => ({ x: e.x, y: e.y })) ], life: 0.14, maxLife: 0.14 });
+  state.fx.arcs.push({
+    points: [{ x: tower.x, y: tower.y, top: true }, ...hit.map((e) => ({ x: e.x, y: e.y }))],
+    life: 0.14, maxLife: 0.14,
+  });
   tower.arcTimer = 0.14;
   state.sfx.zap();
 }
@@ -227,8 +181,8 @@ export function updateTowers(state, dt) {
     if (tower.flash > 0) tower.flash -= dt;
     if (tower.arcTimer > 0) tower.arcTimer -= dt;
     if (tower.cooldown > 0) continue;
-    const stats = effectiveStats(tower);
-    const target = pickTarget(tower, state.enemies);
+    const stats = effectiveStats(tower, state.buffs);
+    const target = pickTarget(tower, state.enemies, state.buffs);
     if (!target) continue;
     tower.cooldown = 1 / stats.rate;
     fireTower(tower, target, stats, state);
@@ -236,24 +190,16 @@ export function updateTowers(state, dt) {
   }
 }
 
-// Move projectiles, apply hits when they reach their target.
 export function updateProjectiles(state, dt) {
   for (const p of state.projectiles) {
-    // Every projectile remembers its last few positions: the trail the
-    // renderer turns into starlight streaks and smoke.
-    if (p.trail) {
-      p.trail.push({ x: p.x, y: p.y });
-      if (p.trail.length > 7) p.trail.shift();
-    }
     if (p.kind === 'rail') {
-      // Locked-line lance: advance, spear each enemy once, die at maxDist.
       const step = p.speed * dt;
       p.x += p.dx * step;
       p.y += p.dy * step;
       p.travelled += step;
       for (const e of state.enemies) {
         if (e.dead || p.hitIds.has(e.id)) continue;
-        if (Math.hypot(e.x - p.x, e.y - p.y) <= e.radius + p.radius + 4) {
+        if (Math.hypot(e.x - p.x, e.y - p.y) <= e.radius + 10) {
           p.hitIds.add(e.id);
           state.damageEnemy(e, p.damage, 'rail');
           state.burst(e.x, e.y, '#7df9ff', 7, 80);
@@ -263,26 +209,17 @@ export function updateProjectiles(state, dt) {
       continue;
     }
     if (p.kind === 'shell') {
-      // Lobbed shell: flies to the spot the target stood on, arcs upward.
-      const dx = p.tx - p.x;
-      const dy = p.ty - p.y;
-      const dist = Math.hypot(dx, dy);
-      const step = p.speed * dt;
-      p.arc += dt * 3;
-      if (dist <= step + 4) {
+      // Lobbed shell on a fixed flight time, so the renderer can draw a
+      // true parabola between the mortar and the target point.
+      p.t += dt;
+      if (p.t >= p.flight) {
         state.explodeShell(p);
         p.dead = true;
-      } else {
-        p.x += (dx / dist) * step;
-        p.y += (dy / dist) * step;
       }
       continue;
     }
     const t = p.target;
-    if (!t || t.dead) {
-      p.dead = true;
-      continue;
-    }
+    if (!t || t.dead) { p.dead = true; continue; }
     const dx = t.x - p.x;
     const dy = t.y - p.y;
     const dist = Math.hypot(dx, dy);
@@ -292,7 +229,7 @@ export function updateProjectiles(state, dt) {
         state.damageEnemy(t, p.damage, 'frost');
         if (p.slowPct) state.slowEnemy(t, p.slowPct, p.slowSecs);
         if (p.splash > 0) state.splashDamage(t, p.damage * 0.5, p.splash, 'frost');
-        state.burst(t.x, t.y, '#48cae4', 6, 60);
+        state.burst(t.x, t.y, '#6fd3ff', 6, 60);
       } else {
         state.damageEnemy(t, p.damage, 'bolt');
         state.burst(t.x, t.y, '#ffd166', 4, 50);
