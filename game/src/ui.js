@@ -1,7 +1,8 @@
 // STARFORGE DEFENSE — input: mouse clicks and keyboard. Hit-tests the
 // same button rects render.js draws, so what you see is what you click.
-import { VIEW_W, VIEW_H, TOWER_ORDER, TOWER_TYPES, PLOTS } from './config.js';
-import { shopCardRect, hudButtons, panelButtons, centerButton } from './render.js';
+import { VIEW_W, VIEW_H, HUD_H, SHOP_H, TOWER_ORDER, TOWER_TYPES, PLOTS } from './config.js';
+import { shopCardRect, hudButtons, panelButtons, endButtons, starfallRect } from './render.js';
+import { specOptions } from './towers.js';
 import { buildCost, createTower, upgradeCost, upgradeTower, sellValue } from './towers.js';
 
 function inside(x, y, r) {
@@ -34,8 +35,12 @@ export function handleClick(state, x, y) {
     return;
   }
   if (state.mode === 'victory' || state.mode === 'defeat') {
-    const b = centerButton();
-    if (inside(x, y, b)) state.restart();
+    const eb = endButtons();
+    if (state.mode === 'victory' && inside(x, y, eb.endless)) {
+      state.startEndless();
+      return;
+    }
+    if (inside(x, y, eb.again)) state.restart();
     return;
   }
   // HUD buttons.
@@ -60,10 +65,19 @@ export function handleClick(state, x, y) {
     state.showHelp = true;
     return;
   }
-  // Upgrade panel buttons (only when a tower is selected).
+  // Upgrade panel buttons (only when a tower is selected). The layout
+  // depends on the tower: a max-level tower offers two spec choices.
   if (state.selectedTower) {
-    const pb = panelButtons();
-    if (inside(x, y, pb.upgrade)) {
+    const pb = panelButtons(state.selectedTower);
+    if (pb.spec0 && inside(x, y, pb.spec0)) {
+      state.chooseSpec(specOptions(state.selectedTower)[0].key);
+      return;
+    }
+    if (pb.spec1 && inside(x, y, pb.spec1)) {
+      state.chooseSpec(specOptions(state.selectedTower)[1].key);
+      return;
+    }
+    if (pb.upgrade && inside(x, y, pb.upgrade)) {
       state.tryUpgrade();
       return;
     }
@@ -71,6 +85,13 @@ export function handleClick(state, x, y) {
       state.trySell();
       return;
     }
+    const panelH = state.selectedTower.level >= 2 && !state.selectedTower.spec ? 436 : 320;
+    if (x >= 968 && x <= 1264 && y >= 66 && y <= 66 + panelH) return; // inside panel: swallow
+  }
+  // STARFALL button in the shop bar.
+  if (inside(x, y, starfallRect())) {
+    state.toggleStarfall();
+    return;
   }
   // Shop cards.
   for (let i = 0; i < TOWER_ORDER.length; i++) {
@@ -78,9 +99,15 @@ export function handleClick(state, x, y) {
       const key = TOWER_ORDER[i];
       state.placingType = state.placingType === key ? null : key;
       state.selectedTower = null;
+      state.starfall.targeting = false;
       state.sfx.click();
       return;
     }
+  }
+  // STARFALL targeting: the next field click is the strike point.
+  if (state.starfall.targeting) {
+    if (y > HUD_H && y < VIEW_H - SHOP_H) state.launchStarfall(x, y);
+    return;
   }
   // Field clicks: place on a plot, or select a tower.
   const hitPlot = plotAt(x, y);
@@ -105,6 +132,7 @@ export function handleKey(state, key) {
   state.sfx.ensure();
   if (key === 'Escape') {
     if (state.showHelp) state.showHelp = false;
+    else if (state.starfall.targeting) state.starfall.targeting = false;
     else if (state.placingType) state.placingType = null;
     else state.selectedTower = null;
     return;
@@ -113,12 +141,24 @@ export function handleKey(state, key) {
     state.startGame();
     return;
   }
+  if (state.mode === 'victory' && (key === 'e' || key === 'E')) {
+    state.startEndless();
+    return;
+  }
   if ((state.mode === 'victory' || state.mode === 'defeat') && (key === ' ' || key === 'Enter')) {
     state.restart();
     return;
   }
   if (key === ' ') {
+    if (state.mode === 'playing') state.callWave();
+    return;
+  }
+  if (key === 'p' || key === 'P') {
     state.togglePause();
+    return;
+  }
+  if (key === 'q' || key === 'Q') {
+    state.toggleStarfall();
     return;
   }
   if (key === 'f' || key === 'F') {

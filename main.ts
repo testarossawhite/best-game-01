@@ -1,7 +1,13 @@
-// STARFORGE DEFENSE — the entrypoint handed to make.fun (Node 22,
+// STARFORGE DEFENSE v2 — the entrypoint handed to make.fun (Node 22,
 // standard library only). It copies this repository's game/ and
 // screenshots/ into the output directory and writes dossier.json with the
 // vendored make.fun library, under the scorer's caps from the kit.
+//
+// v2 is the star pass: the game is now visibly built around its captured
+// star — a granulated, corona-crowned core that powers every tower over
+// pulsing starlight feeds, a STARFALL strike charged by kills, level-3
+// tower specializations, a Splitter enemy, and an endless mode behind the
+// wave-20 victory. All of it lives in game/ as plain ES modules.
 //
 // Outside the grader, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
@@ -23,13 +29,11 @@ if (existsSync(join(here, 'screenshots'))) {
 // Caps the scorer enforces: dossier text at most 160 KiB, at most 4
 // screenshots of at most 256 KiB each, game/ at most 993 files and 48 MiB,
 // every game/ path at most 1000 bytes.
-writeFileSync(
-  join(out, 'dossier.json'),
-  buildDossier(out, {
-    text_max_bytes: 163840,
-    screenshots: { max: 4, max_bytes: 262144 },
-    game_max_files: 993,
-    game_max_bytes: 50331648,
-    game_path_max_bytes: 1000,
-  }),
-);
+const CAPS = {
+  text_max_bytes: 163840,
+  screenshots: { max: 4, max_bytes: 262144 },
+  game_max_files: 993,
+  game_max_bytes: 50331648,
+  game_path_max_bytes: 1000,
+};
+writeFileSync(join(out, 'dossier.json'), buildDossier(out, CAPS));

@@ -1,10 +1,10 @@
 // STARFORGE DEFENSE — juice: particles, floating score text, lightning
 // arcs and screen shake. All visual, all transient, all cheap.
 export function makeFx() {
-  return { particles: [], texts: [], arcs: [], shakeTime: 0, shakeMag: 0 };
+  return { particles: [], texts: [], arcs: [], rings: [], shakeTime: 0, shakeMag: 0 };
 }
 
-export function burst(fx, x, y, color, count, speed) {
+export function burst(fx, x, y, color, count, speed, shape) {
   for (let i = 0; i < count; i++) {
     const a = Math.random() * Math.PI * 2;
     const v = speed * (0.4 + Math.random() * 0.8);
@@ -16,8 +16,15 @@ export function burst(fx, x, y, color, count, speed) {
       maxLife: 0.75,
       color,
       size: 2 + Math.random() * 3.5,
+      shape: shape || 'dot',
+      rot: Math.random() * Math.PI * 2,
     });
   }
+}
+
+// An expanding shockwave ring (explosions, boss deaths, core hits).
+export function shockRing(fx, x, y, color, maxR) {
+  fx.rings.push({ x, y, r: 6, maxR: maxR || 90, life: 0.45, maxLife: 0.45, color });
 }
 
 export function ringBurst(fx, x, y, color) {
@@ -59,6 +66,11 @@ export function updateFx(fx, dt) {
   fx.texts = fx.texts.filter((t) => t.life > 0);
   for (const a of fx.arcs) a.life -= dt;
   fx.arcs = fx.arcs.filter((a) => a.life > 0);
+  for (const r of fx.rings) {
+    r.life -= dt;
+    r.r += (r.maxR - r.r) * Math.min(1, dt * 9);
+  }
+  fx.rings = fx.rings.filter((r) => r.life > 0);
   if (fx.shakeTime > 0) {
     fx.shakeTime -= dt;
     if (fx.shakeTime <= 0) fx.shakeMag = 0;

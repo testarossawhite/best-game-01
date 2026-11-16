@@ -1,12 +1,53 @@
-// STARFORGE DEFENSE — towers: build, upgrade, sell, aim and fire.
-// A tower lives on a plot, picks the furthest-along enemy in range, and
-// fires projectiles (or instant chain lightning) on its cooldown.
-import { TOWER_TYPES } from './config.js';
+// STARFORGE DEFENSE — towers: build, upgrade, specialize, sell, aim and
+// fire. A tower lives on a plot, picks the furthest-along enemy in range,
+// and fires projectiles (or instant chain lightning) on its cooldown.
+// At level 3 the player picks ONE specialization branch per tower; the
+// branch's mods reshape the level-3 stat block (see effectiveStats).
+import { TOWER_TYPES, TOWER_SPECS } from './config.js';
 
 let nextTowerId = 1;
 
 export function towerStats(typeKey, level) {
   return TOWER_TYPES[typeKey].levels[level];
+}
+
+// The stat block a tower actually fights with: its level stats plus the
+// defaults for mechanics no base level carries, plus its specialization.
+export function effectiveStats(tower) {
+  const base = TOWER_TYPES[tower.type].levels[tower.level];
+  const stats = {
+    damage: base.damage, range: base.range, rate: base.rate,
+    splash: base.splash, chain: base.chain,
+    slowPct: base.slowPct, slowSecs: base.slowSecs,
+    pierce: false, cluster: 0, burnDps: 0, burnSecs: 0, chainJump: 130,
+  };
+  if (tower.spec) {
+    const spec = TOWER_SPECS[tower.type].find((s) => s.key === tower.spec);
+    if (spec) {
+      for (const [k, v] of Object.entries(spec.mods)) {
+        if (k.endsWith('Mul')) stats[k.slice(0, -3)] = Math.round(stats[k.slice(0, -3)] * v * 10) / 10;
+        else stats[k] = v;
+      }
+    }
+  }
+  return stats;
+}
+
+export function specOptions(tower) {
+  if (tower.level < 2 || tower.spec) return [];
+  return TOWER_SPECS[tower.type];
+}
+
+export function specCost(tower, specKey) {
+  const spec = TOWER_SPECS[tower.type].find((s) => s.key === specKey);
+  return spec ? spec.cost : null;
+}
+
+export function applySpec(tower, specKey) {
+  if (tower.level < 2 || tower.spec) return false;
+  if (!TOWER_SPECS[tower.type].some((s) => s.key === specKey)) return false;
+  tower.spec = specKey;
+  return true;
 }
 
 export function buildCost(typeKey) {
@@ -22,6 +63,7 @@ export function investedGold(tower) {
   const levels = TOWER_TYPES[tower.type].levels;
   let sum = 0;
   for (let i = 0; i <= tower.level; i++) sum += levels[i].cost;
+  if (tower.spec) sum += specCost(tower, tower.spec) || 0;
   return sum;
 }
 
@@ -37,6 +79,7 @@ export function createTower(typeKey, plotIndex, plot) {
     x: plot.x,
     y: plot.y,
     level: 0,
+    spec: null,
     cooldown: 0,
     angle: -Math.PI / 2,
     flash: 0,
@@ -52,7 +95,7 @@ export function upgradeTower(tower) {
 
 // Furthest-along enemy inside the tower's range, or null.
 export function pickTarget(tower, enemies) {
-  const stats = towerStats(tower.type, tower.level);
+  const stats = effectiveStats(tower);
   let best = null;
   let bestDist = -1;
   for (const e of enemies) {
@@ -67,16 +110,38 @@ export function pickTarget(tower, enemies) {
 }
 
 function fireBolt(tower, target, stats, state) {
+  const sx = tower.x;
+  const sy = tower.y - 14;
+  if (stats.pierce) {
+    // Railgun: a starlight lance on a locked line — it spears through
+    // every enemy standing on that line, each one hit exactly once.
+    const a = Math.atan2(target.y - sy, target.x - sx);
+    state.projectiles.push({
+      kind: 'rail',
+      x: sx, y: sy,
+      dx: Math.cos(a), dy: Math.sin(a),
+      travelled: 0,
+      maxDist: stats.range + 30,
+      speed: 900,
+      damage: stats.damage,
+      color: '#7df9ff',
+      radius: 6,
+      hitIds: new Set(),
+      trail: [],
+    });
+    return;
+  }
   state.projectiles.push({
     kind: 'bolt',
-    x: tower.x,
-    y: tower.y - 14,
+    x: sx,
+    y: sy,
     target,
     speed: 520,
     damage: stats.damage,
     splash: 0,
-    color: '#4361ee',
+    color: '#7df9ff',
     radius: 4,
+    trail: [],
   });
 }
 
@@ -94,6 +159,10 @@ function fireMortar(tower, target, stats, state) {
     color: '#f4845f',
     radius: 7,
     arc: 0,
+    cluster: stats.cluster,
+    burnDps: stats.burnDps,
+    burnSecs: stats.burnSecs,
+    trail: [],
   });
 }
 
@@ -106,10 +175,11 @@ function fireFrost(tower, target, stats, state) {
     speed: 420,
     damage: stats.damage,
     splash: stats.splash,
-    color: '#48cae4',
+    color: '#aee9ff',
     radius: 5,
     slowPct: stats.slowPct,
     slowSecs: stats.slowSecs,
+    trail: [],
   });
 }
 
@@ -120,7 +190,7 @@ function fireTesla(tower, first, stats, state) {
   let damage = stats.damage;
   while (hit.length < stats.chain) {
     let next = null;
-    let nextD = 130;
+    let nextD = stats.chainJump;
     for (const e of state.enemies) {
       if (e.dead || hit.includes(e)) continue;
       const d = Math.hypot(e.x - from.x, e.y - from.y);
@@ -137,7 +207,7 @@ function fireTesla(tower, first, stats, state) {
     state.damageEnemy(e, damage, 'tesla');
     damage = Math.max(4, Math.round(damage * 0.8));
   }
-  state.arcs.push({ points: [ { x: tower.x, y: tower.y - 18 }, ...hit.map((e) => ({ x: e.x, y: e.y })) ], life: 0.14, maxLife: 0.14 });
+  state.fx.arcs.push({ points: [ { x: tower.x, y: tower.y - 18 }, ...hit.map((e) => ({ x: e.x, y: e.y })) ], life: 0.14, maxLife: 0.14 });
   tower.arcTimer = 0.14;
   state.sfx.zap();
 }
@@ -157,7 +227,7 @@ export function updateTowers(state, dt) {
     if (tower.flash > 0) tower.flash -= dt;
     if (tower.arcTimer > 0) tower.arcTimer -= dt;
     if (tower.cooldown > 0) continue;
-    const stats = towerStats(tower.type, tower.level);
+    const stats = effectiveStats(tower);
     const target = pickTarget(tower, state.enemies);
     if (!target) continue;
     tower.cooldown = 1 / stats.rate;
@@ -169,6 +239,29 @@ export function updateTowers(state, dt) {
 // Move projectiles, apply hits when they reach their target.
 export function updateProjectiles(state, dt) {
   for (const p of state.projectiles) {
+    // Every projectile remembers its last few positions: the trail the
+    // renderer turns into starlight streaks and smoke.
+    if (p.trail) {
+      p.trail.push({ x: p.x, y: p.y });
+      if (p.trail.length > 7) p.trail.shift();
+    }
+    if (p.kind === 'rail') {
+      // Locked-line lance: advance, spear each enemy once, die at maxDist.
+      const step = p.speed * dt;
+      p.x += p.dx * step;
+      p.y += p.dy * step;
+      p.travelled += step;
+      for (const e of state.enemies) {
+        if (e.dead || p.hitIds.has(e.id)) continue;
+        if (Math.hypot(e.x - p.x, e.y - p.y) <= e.radius + p.radius + 4) {
+          p.hitIds.add(e.id);
+          state.damageEnemy(e, p.damage, 'rail');
+          state.burst(e.x, e.y, '#7df9ff', 7, 80);
+        }
+      }
+      if (p.travelled >= p.maxDist) p.dead = true;
+      continue;
+    }
     if (p.kind === 'shell') {
       // Lobbed shell: flies to the spot the target stood on, arcs upward.
       const dx = p.tx - p.x;

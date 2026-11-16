@@ -3,10 +3,10 @@
 // together and hands the canvas to render.js.
 import { VIEW_W, VIEW_H, ECONOMY, TOWER_TYPES, PLOTS } from './config.js';
 import { Sfx } from './audio.js';
-import { makeFx, burst, ringBurst, floatText, shake, updateFx } from './particles.js';
-import { buildWave, waveClearBonus, spawnInterval } from './waves.js';
-import { spawnEnemy, updateEnemies, damageEnemy, slowEnemy } from './enemies.js';
-import { createTower, upgradeTower, upgradeCost, sellValue, updateTowers, updateProjectiles } from './towers.js';
+import { makeFx, burst, ringBurst, shockRing, floatText, shake, updateFx } from './particles.js';
+import { buildWave, wavePreview, waveClearBonus, spawnInterval } from './waves.js';
+import { spawnEnemy, updateEnemies, damageEnemy, slowEnemy, burnEnemy } from './enemies.js';
+import { createTower, upgradeTower, upgradeCost, specCost, applySpec, sellValue, updateTowers, updateProjectiles } from './towers.js';
 import { draw } from './render.js';
 import { handleClick, handleKey, handleMouseMove } from './ui.js';
 import { applyShot } from './shots.js';
@@ -50,13 +50,28 @@ function freshState() {
     mouse: null,
     showHelp: false,
     frozen: false,
-    stats: { goldEarned: 0, leaks: 0 },
+    banner: null,
+    endless: false,
+    victoryBonusPaid: false,
+    pendingSpawns: [],
+    starfall: { charge: 0, max: 100, targeting: false },
+    starfallEvents: [],
+    stats: { goldEarned: 0, leaks: 0, time: 0 },
     sfx: new Sfx(),
   };
   // Combat callbacks the tower/enemy modules call back into.
   state.burst = (x, y, color, count, speed) => burst(state.fx, x, y, color, count, speed);
-  state.damageEnemy = (e, amount, kind) => damageEnemy(state, e, amount, kind);
+  state.damageEnemy = (e, amount, kind) => {
+    const wasAlive = !e.dead && e.hp > 0;
+    damageEnemy(state, e, amount, kind);
+    // Floating damage numbers on the heavy hits only — every peck would
+    // bury the field in digits, but a mortar slam should SAY its number.
+    if (wasAlive && amount >= 30 && !e.dead) {
+      floatText(state.fx, e.x + (Math.random() - 0.5) * 14, e.y - e.radius - 20, `${Math.round(amount)}`, '#ffffff');
+    }
+  };
   state.slowEnemy = (e, pct, secs) => slowEnemy(e, pct, secs);
+  state.burnEnemy = (e, dps, secs) => burnEnemy(e, dps, secs);
   state.splashDamage = (center, amount, radius, kind) => {
     for (const e of state.enemies) {
       if (e.dead || e === center) continue;
@@ -66,10 +81,39 @@ function freshState() {
   state.explodeShell = (p) => {
     burst(state.fx, p.tx, p.ty, '#f4845f', 18, 160);
     burst(state.fx, p.tx, p.ty, '#ffd166', 10, 120);
+    shockRing(state.fx, p.tx, p.ty, '#ffb35c', Math.max(46, p.splash));
     state.sfx.boom();
     for (const e of [...state.enemies]) {
       if (e.dead) continue;
-      if (Math.hypot(e.x - p.tx, e.y - p.ty) <= p.splash) state.damageEnemy(e, p.damage, 'mortar');
+      if (Math.hypot(e.x - p.tx, e.y - p.ty) <= p.splash) {
+        state.damageEnemy(e, p.damage, 'mortar');
+        if (p.burnDps) state.burnEnemy(e, p.burnDps, p.burnSecs);
+      }
+    }
+    // Cluster specialization: the shell splits into bomblets that scatter
+    // around the impact point and pop a heartbeat later.
+    if (p.cluster > 0) {
+      for (let i = 0; i < p.cluster; i++) {
+        const a = (i / p.cluster) * Math.PI * 2 + Math.random() * 0.7;
+        const d = 34 + Math.random() * 26;
+        state.projectiles.push({
+          kind: 'shell',
+          x: p.tx, y: p.ty - 10,
+          tx: p.tx + Math.cos(a) * d,
+          ty: p.ty + Math.sin(a) * d,
+          target: null,
+          speed: 460,
+          damage: Math.round(p.damage * 0.45),
+          splash: Math.round(p.splash * 0.45),
+          color: '#ffb35c',
+          radius: 4,
+          arc: 0,
+          cluster: 0,
+          burnDps: 0,
+          burnSecs: 0,
+          trail: [],
+        });
+      }
     }
   };
   state.onKill = (e, kind) => {
@@ -77,12 +121,21 @@ function freshState() {
     state.stats.goldEarned += e.gold;
     state.kills += 1;
     state.score += e.score;
+    // Every kill feeds the STARFALL meter: starlight gathered from the
+    // fallen, spent in one falling-star strike.
+    const prevCharge = state.starfall.charge;
+    state.starfall.charge = Math.min(state.starfall.max, state.starfall.charge + Math.max(1, Math.round(e.score / 8)));
+    if (prevCharge < state.starfall.max && state.starfall.charge >= state.starfall.max) {
+      floatText(state.fx, 640, 96, '★ STARFALL READY ★', '#ffd166');
+      state.sfx.upgrade();
+    }
     floatText(state.fx, e.x, e.y - 18, `+${e.gold}g`, '#ffd166');
     burst(state.fx, e.x, e.y, '#80ed99', 8, 110);
     state.sfx.coin();
     if (e.type === 'boss') {
       shake(state.fx, 16, 0.6);
       ringBurst(state.fx, e.x, e.y, '#ff0a54');
+      shockRing(state.fx, e.x, e.y, '#ff0a54', 150);
       floatText(state.fx, e.x, e.y - 44, 'BOSS DOWN! +250g', '#ff0a54');
       state.sfx.bossDie();
     }
@@ -119,20 +172,79 @@ function attachActions(s) {
   s.restart = s.startGame;
 
 s.callWave = () => {
-  if (state.mode !== 'playing' || state.waveActive || state.wave >= ECONOMY.maxWave) return;
+  if (state.mode !== 'playing' || state.waveActive) return;
+  if (!state.endless && state.wave >= ECONOMY.maxWave) return;
   if (state.interWave > 0 && state.wave > 0) {
     const bonus = Math.min(ECONOMY.callEarlyMax, Math.ceil(state.interWave) * ECONOMY.callEarlyPerSecond);
     state.gold += bonus;
     state.stats.goldEarned += bonus;
-    floatText(state.fx, 640, 120, `Early call bonus +${bonus}g`, '#2a9d8f');
+    floatText(state.fx, 640, 120, `Early call bonus +${bonus}g`, '#7df9ff');
   }
   state.wave += 1;
   state.spawnQueue = buildWave(state.wave);
   state.spawnTimer = 0.6;
   state.waveActive = true;
   state.interWave = 0;
+  state.banner = {
+    title: state.endless && state.wave > ECONOMY.maxWave ? `WAVE ${state.wave} — ENDLESS` : `WAVE ${state.wave}`,
+    sub: wavePreview(state.wave),
+    life: 1.7,
+    maxLife: 1.7,
+  };
   state.sfx.horn();
   statusEl.textContent = `Wave ${state.wave} started`;
+};
+
+s.chooseSpec = (specKey) => {
+  const tower = state.selectedTower;
+  if (!tower) return;
+  const cost = specCost(tower, specKey);
+  if (cost === null) return;
+  if (state.gold < cost) {
+    floatText(state.fx, tower.x, tower.y - 34, 'Not enough gold!', '#ff4d6d');
+    return;
+  }
+  state.gold -= cost;
+  if (applySpec(tower, specKey)) {
+    burst(state.fx, tower.x, tower.y, '#ffd166', 22, 150);
+    shockRing(state.fx, tower.x, tower.y, '#ffd166', 60);
+    state.sfx.upgrade();
+  }
+};
+
+// After the wave-20 victory: keep the same forge, towers and score, and
+// march into endless waves that scale forever.
+s.startEndless = () => {
+  if (state.mode !== 'victory') return;
+  state.mode = 'playing';
+  state.endless = true;
+  state.interWave = ECONOMY.interWaveSeconds;
+  state.banner = { title: 'ENDLESS MODE', sub: 'The forge holds — how long can you?', life: 1.7, maxLife: 1.7 };
+  state.sfx.horn();
+};
+
+// STARFALL: with a full meter, arm the strike; the next field click calls
+// a star fragment down on that spot.
+s.toggleStarfall = () => {
+  if (state.mode !== 'playing') return;
+  if (state.starfall.charge < state.starfall.max) {
+    floatText(state.fx, 640, 120, 'Starfall is still charging…', '#ffd166');
+    return;
+  }
+  state.starfall.targeting = !state.starfall.targeting;
+  if (state.starfall.targeting) {
+    state.placingType = null;
+    state.selectedTower = null;
+  }
+  state.sfx.click();
+};
+
+s.launchStarfall = (x, y) => {
+  if (!state.starfall.targeting) return;
+  state.starfall.targeting = false;
+  state.starfall.charge = 0;
+  state.starfallEvents.push({ x, y, t: 0, struck: false });
+  state.sfx.horn();
 };
 
 s.togglePause = () => {
@@ -203,12 +315,35 @@ attachActions(state);
 
 function update(dt) {
   if (state.frozen) return; // screenshot scenes stay exactly as staged
+  if (state.banner) {
+    state.banner.life -= dt;
+    if (state.banner.life <= 0) state.banner = null;
+  }
   if (state.mode !== 'playing' || state.paused) {
     updateFx(state.fx, dt);
     return;
   }
+  state.stats.time += dt;
+  // STARFALL events: a star fragment streaks down for 0.35s, then strikes.
+  for (const ev of state.starfallEvents) {
+    ev.t += dt;
+    if (!ev.struck && ev.t >= 0.35) {
+      ev.struck = true;
+      burst(state.fx, ev.x, ev.y, '#ffd166', 30, 240);
+      burst(state.fx, ev.x, ev.y, '#fff3b0', 18, 180);
+      burst(state.fx, ev.x, ev.y, '#ff9e2c', 14, 140, 'shard');
+      shockRing(state.fx, ev.x, ev.y, '#ffd166', 150);
+      shake(state.fx, 10, 0.4);
+      state.sfx.boom();
+      for (const e of [...state.enemies]) {
+        if (e.dead) continue;
+        if (Math.hypot(e.x - ev.x, e.y - ev.y) <= 110) state.damageEnemy(e, 220, 'starfall');
+      }
+    }
+  }
+  state.starfallEvents = state.starfallEvents.filter((ev) => ev.t < 0.8);
   // Inter-wave countdown: auto-starts the next wave at zero.
-  if (!state.waveActive && state.wave > 0 && state.wave < ECONOMY.maxWave) {
+  if (!state.waveActive && state.wave > 0 && (state.endless || state.wave < ECONOMY.maxWave)) {
     state.interWave -= dt;
     if (state.interWave <= 0) state.callWave();
   }
@@ -231,9 +366,10 @@ function update(dt) {
     const bonus = waveClearBonus(state.wave);
     state.gold += bonus;
     state.stats.goldEarned += bonus;
-    floatText(state.fx, 640, 120, `Wave ${state.wave} cleared! +${bonus}g`, '#2a9d8f');
-    if (state.wave >= ECONOMY.maxWave) {
+    floatText(state.fx, 640, 120, `Wave ${state.wave} cleared! +${bonus}g`, '#7df9ff');
+    if (state.wave >= ECONOMY.maxWave && !state.endless && !state.victoryBonusPaid) {
       state.mode = 'victory';
+      state.victoryBonusPaid = true;
       state.score += state.lives * 150;
       state.sfx.victory();
     } else {

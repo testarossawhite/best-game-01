@@ -10,25 +10,28 @@ export const SHOP_H = 96; // bottom tower-shop bar height
 export const FIELD_TOP = HUD_H;
 export const FIELD_BOTTOM = VIEW_H - SHOP_H;
 
-// Bright, clean palette: light sky field, sandy path, navy HUD.
+// Dark premium palette: deep space, gunmetal deck, molten amber light.
+// The forge's captured star is the light source; almost everything emissive
+// is amber/orange, with cyan/violet reserved for tower-type accents.
 export const PALETTE = {
-  skyTop: '#cfeeff',
-  skyBottom: '#eafaff',
-  field: '#8ecf7d',
-  fieldDark: '#7cc46c',
-  path: '#eed49a',
-  pathEdge: '#c9a45e',
-  plot: '#ffffff',
-  plotEdge: '#5b7d4f',
-  core: '#37e0ff',
-  coreGlow: '#9ff3ff',
-  hudBg: '#14213d',
-  hudText: '#ffffff',
-  hudAccent: '#ffd166',
-  shopBg: '#1d3557',
-  cardBg: '#f1faee',
-  cardEdge: '#14213d',
-  danger: '#ef476f',
+  spaceTop: '#05060f',
+  spaceBottom: '#0d0a1e',
+  deck: '#232936',
+  deckDark: '#171b26',
+  deckLine: '#313a4f',
+  conduit: '#ff9e2c',
+  conduitHot: '#ffd166',
+  plot: '#1a2030',
+  plotEdge: '#4dd8ff',
+  core: '#ffb35c',
+  coreGlow: '#ff7b00',
+  hudBg: 'rgba(8,10,18,0.88)',
+  hudText: '#eef2ff',
+  hudAccent: '#ffb35c',
+  shopBg: 'rgba(10,12,22,0.92)',
+  cardBg: '#171c2a',
+  cardEdge: '#3a4a6b',
+  danger: '#ff4d6d',
   gold: '#ffd166',
 };
 
@@ -69,8 +72,22 @@ export const PLOTS = [
   { x: 1150, y: 170, r: 26 },
 ];
 
+// Decorative deck machinery (starforge dressing): fixed spots chosen to
+// sit clear of the conduit and the docking pads. Render-only; no game effect.
+export const PROPS = [
+  { kind: 'sensor', x: 92, y: 96 },
+  { kind: 'pods', x: 648, y: 378 },
+  { kind: 'cells', x: 150, y: 566 },
+  { kind: 'beacon', x: 1136, y: 104 },
+  { kind: 'drums', x: 424, y: 92 },
+  { kind: 'pods', x: 986, y: 548 },
+];
+
 // Tower catalogue. levels[i] is the stat block at upgrade level i (0-based).
 // cost is the build cost for level 0 / the upgrade price for later levels.
+// specs are the two level-3 specializations: at max level the player picks
+// ONE. mods override level-3 stats; a key ending in "Mul" multiplies the
+// stat of the same name instead (rateMul 1.9 = 90% faster fire rate).
 export const TOWER_TYPES = {
   bolt: {
     key: 'bolt',
@@ -132,6 +149,29 @@ export const TOWER_TYPES = {
 
 export const TOWER_ORDER = ['bolt', 'frost', 'mortar', 'tesla'];
 
+// Level-3 specializations: at max level the player picks ONE of two
+// branches per tower. mods override the level-3 stat block; a key ending
+// in "Mul" multiplies that stat instead. Extra fields the base stats do
+// not carry (pierce, cluster, burnDps, chainJump) default in towers.js.
+export const TOWER_SPECS = {
+  bolt: [
+    { key: 'rail', name: 'Railgun', desc: 'Piercing line shots, heavy damage', cost: 120, mods: { damage: 58, rate: 1.5, range: 155, pierce: true } },
+    { key: 'dual', name: 'Dual Bolt', desc: 'Twin barrels: +90% fire rate', cost: 110, mods: { damage: 30, rateMul: 1.9 } },
+  ],
+  frost: [
+    { key: 'deepfreeze', name: 'Deep Freeze', desc: 'Slow 80% for 3.2s', cost: 130, mods: { slowPct: 0.8, slowSecs: 3.2, damage: 20 } },
+    { key: 'shatter', name: 'Shatter', desc: 'Heavy damage, wider burst', cost: 125, mods: { damage: 52, splash: 85 } },
+  ],
+  mortar: [
+    { key: 'cluster', name: 'Cluster', desc: 'Shells split into 3 bomblets', cost: 200, mods: { damage: 80, cluster: 3 } },
+    { key: 'napalm', name: 'Napalm', desc: 'Burns targets: 18 dmg/s, 3s', cost: 190, mods: { burnDps: 18, burnSecs: 3 } },
+  ],
+  tesla: [
+    { key: 'storm', name: 'Storm', desc: 'Chains to 10, jumps further', cost: 260, mods: { damage: 40, chain: 10, chainJump: 165 } },
+    { key: 'overcharge', name: 'Overcharge', desc: '+115% damage per arc', cost: 240, mods: { damage: 99 } },
+  ],
+};
+
 // Enemy catalogue. hp scales with the wave (see enemies.js).
 export const ENEMY_TYPES = {
   runner: { name: 'Runner', color: '#fb8500', dark: '#9c5200', radius: 11, speed: 78, hp: 34, gold: 6, lives: 1, score: 10 },
@@ -139,6 +179,8 @@ export const ENEMY_TYPES = {
   swarm: { name: 'Swarmling', color: '#ffd60a', dark: '#a67c00', radius: 8, speed: 92, hp: 16, gold: 3, lives: 1, score: 5 },
   shielded: { name: 'Shielded', color: '#b5179e', dark: '#6d0a5e', radius: 14, speed: 42, hp: 95, shield: 70, gold: 13, lives: 1, score: 20 },
   tank: { name: 'Tank', color: '#d90429', dark: '#7f0218', radius: 18, speed: 30, hp: 260, gold: 16, lives: 2, score: 25 },
+  splitter: { name: 'Splitter', color: '#06d6a0', dark: '#04503c', radius: 15, speed: 40, hp: 130, gold: 10, lives: 1, score: 15 },
+  mite: { name: 'Mite', color: '#95d5b2', dark: '#2d6a4f', radius: 7, speed: 108, hp: 12, gold: 2, lives: 1, score: 3 },
   boss: { name: 'Starforge Boss', color: '#ff0a54', dark: '#7a0030', radius: 30, speed: 24, hp: 2600, gold: 250, lives: 5, score: 500 },
 };
 
