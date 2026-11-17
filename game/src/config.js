@@ -109,19 +109,19 @@ export const TOWER_SPECS = {
 // damage reduction per hit; shield is an absorb pool; aura marks the
 // Shieldbearer's projected shield; regen/mend are the Mender's healing.
 export const ENEMY_TYPES = {
-  grunt:    { name: 'Grunt', trait: 'A void construct shambling down the conduit to drink the star dry.', color: 0x8fe388, dark: 0x2f6b1f, radius: 13, speed: 48, hp: 70, gold: 8, lives: 1, score: 10, debut: 1 },
-  runner:   { name: 'Runner', trait: 'A lean sliver of dark that races the light — it wants to be first to the star.', color: 0xffab4a, dark: 0x8a4d00, radius: 11, speed: 78, hp: 34, gold: 6, lives: 1, score: 10, debut: 2 },
-  swarm:    { name: 'Swarmling', trait: 'Ember-sized void spawn. One is nothing; the swarm is a tide.', color: 0xffe14a, dark: 0x8a6d00, radius: 8, speed: 92, hp: 16, gold: 3, lives: 1, score: 5, debut: 3 },
-  shielded: { name: 'Shieldbearer', trait: 'It wraps its kin in stolen dark — shields bloom around it as it walks.', color: 0xf06fd8, dark: 0x6d0a5e, radius: 14, speed: 42, hp: 95, shield: 70, aura: true, gold: 13, lives: 1, score: 20, debut: 5 },
-  splitter: { name: 'Splitter', trait: 'A swollen sac of unlight. Cut it open and the dark spills out as Mites.', color: 0x3ae0b0, dark: 0x04503c, radius: 15, speed: 40, hp: 130, gold: 10, lives: 1, score: 15, debut: 6 },
-  mite:     { name: 'Mite', trait: 'Splitter spawn — a droplet of void, quick and desperate for light.', color: 0xb5e8c8, dark: 0x2d6a4f, radius: 7, speed: 108, hp: 12, gold: 2, lives: 1, score: 3, debut: 6 },
-  tank:     { name: 'Bulwark', trait: 'A plated brute of compressed night. If it reaches the star it tears out two handfuls of light.', color: 0xff5c5c, dark: 0x7f0218, radius: 18, speed: 30, hp: 260, gold: 16, lives: 2, score: 25, debut: 8 },
-  boss:     { name: 'Dreadnought', trait: 'A void dreadnought — a fortress of dark come to swallow the star whole.', color: 0xff2e6d, dark: 0x5e0030, radius: 30, speed: 24, hp: 2600, gold: 250, lives: 5, score: 500, debut: 10 },
-  mender:   { name: 'Mender', trait: 'It knits the void back together — constructs heal in its shadow.', color: 0x7dffce, dark: 0x0b5c40, radius: 14, speed: 44, hp: 120, regen: 0.03, mend: 7, gold: 14, lives: 1, score: 20, debut: 13 },
-  lancer:   { name: 'Lancer', trait: 'An elite splinter of the dark, faster than the light it hunts.', color: 0x6fe8ff, dark: 0x0a4a6b, radius: 11, speed: 118, hp: 85, gold: 11, lives: 1, score: 18, debut: 17 },
-  aegis:    { name: 'Aegis', trait: 'Plate forged from a dead star — every hit lands 6 weaker.', color: 0xc9b8ff, dark: 0x3d2d7a, radius: 15, speed: 38, hp: 210, armour: 6, gold: 15, lives: 1, score: 22, debut: 24 },
-  lancerprime: { name: 'Lancer Prime', trait: 'The void\'s chosen blade: shielded, faster, and utterly light-hungry.', color: 0x9ff3ff, dark: 0x0a5c6b, radius: 12, speed: 128, hp: 150, shield: 60, gold: 16, lives: 1, score: 26, debut: 34 },
-  tankprime:   { name: 'Bulwark Prime', trait: 'A walking eclipse in fortress plate — hits land 8 weaker on it.', color: 0xff8a7a, dark: 0x6b1402, radius: 20, speed: 27, hp: 520, armour: 8, gold: 24, lives: 2, score: 34, debut: 42 },
+  grunt:    { name: 'Grunt', trait: 'A void construct shambling down the conduit to drink the star dry.', color: 0x8fe388, dark: 0x4a8a34, radius: 13, speed: 48, hp: 70, gold: 8, lives: 1, score: 10, debut: 1 },
+  runner:   { name: 'Runner', trait: 'A lean sliver of dark that races the light — it wants to be first to the star.', color: 0xffab4a, dark: 0xb06a10, radius: 11, speed: 78, hp: 34, gold: 6, lives: 1, score: 10, debut: 2 },
+  swarm:    { name: 'Swarmling', trait: 'Ember-sized void spawn. One is nothing; the swarm is a tide.', color: 0xffe14a, dark: 0xb08d10, radius: 8, speed: 92, hp: 16, gold: 3, lives: 1, score: 5, debut: 3 },
+  shielded: { name: 'Shieldbearer', trait: 'It wraps its kin in stolen dark — shields bloom around it as it walks.', color: 0xf06fd8, dark: 0xa02090, radius: 14, speed: 42, hp: 95, shield: 70, aura: true, gold: 13, lives: 1, score: 20, debut: 5 },
+  splitter: { name: 'Splitter', trait: 'A swollen sac of unlight. Cut it open and the dark spills out as Mites.', color: 0x3ae0b0, dark: 0x0a7a5c, radius: 15, speed: 40, hp: 130, gold: 10, lives: 1, score: 15, debut: 6 },
+  mite:     { name: 'Mite', trait: 'Splitter spawn — a droplet of void, quick and desperate for light.', color: 0xb5e8c8, dark: 0x4a8a68, radius: 7, speed: 108, hp: 12, gold: 2, lives: 1, score: 3, debut: 6 },
+  tank:     { name: 'Bulwark', trait: 'A plated brute of compressed night. If it reaches the star it tears out two handfuls of light.', color: 0xff5c5c, dark: 0xb02020, radius: 18, speed: 30, hp: 260, gold: 16, lives: 2, score: 25, debut: 8 },
+  boss:     { name: 'Dreadnought', trait: 'A void dreadnought — a fortress of dark come to swallow the star whole.', color: 0xff2e6d, dark: 0xa01048, radius: 30, speed: 24, hp: 2600, gold: 250, lives: 5, score: 500, debut: 10 },
+  mender:   { name: 'Mender', trait: 'It knits the void back together — constructs heal in its shadow.', color: 0x7dffce, dark: 0x12805c, radius: 14, speed: 44, hp: 120, regen: 0.03, mend: 7, gold: 14, lives: 1, score: 20, debut: 13 },
+  lancer:   { name: 'Lancer', trait: 'An elite splinter of the dark, faster than the light it hunts.', color: 0x6fe8ff, dark: 0x1070a0, radius: 11, speed: 118, hp: 85, gold: 11, lives: 1, score: 18, debut: 17 },
+  aegis:    { name: 'Aegis', trait: 'Plate forged from a dead star — every hit lands 6 weaker.', color: 0xc9b8ff, dark: 0x6a54c0, radius: 15, speed: 38, hp: 210, armour: 6, gold: 15, lives: 1, score: 22, debut: 24 },
+  lancerprime: { name: 'Lancer Prime', trait: 'The void\'s chosen blade: shielded, faster, and utterly light-hungry.', color: 0x9ff3ff, dark: 0x1090a8, radius: 12, speed: 128, hp: 150, shield: 60, gold: 16, lives: 1, score: 26, debut: 34 },
+  tankprime:   { name: 'Bulwark Prime', trait: 'A walking eclipse in fortress plate — hits land 8 weaker on it.', color: 0xff8a7a, dark: 0xb03a20, radius: 20, speed: 27, hp: 520, armour: 8, gold: 24, lives: 2, score: 34, debut: 42 },
 };
 
 // Stage-clear reward pool: between assaults the forge refines what the

@@ -1,10 +1,11 @@
-// STARFORGE DEFENSE v3 — the entrypoint handed to make.fun (Node 22,
+// STARFORGE DEFENSE v4 — the entrypoint handed to make.fun (Node 22,
 // standard library only). It copies this repository's game/ and
 // screenshots/ into the output directory and writes dossier.json with the
 // vendored make.fun library, under the scorer's caps from the kit.
 //
-// v3 is the 3D rebuild: the forge is now a real three.js scene — a metal
-// deck floating in deep space, a captured living star whose light powers
+// v4 is v3's full 3D game with a bright, cheerful sky-arena restyle: the
+// forge is a real three.js scene — a metal deck floating in a sunny sky,
+// a captured living star whose light powers
 // every tower along the molten conduit, and void constructs riding that
 // conduit inward to drink the star dry. Fifty designed stages, a stage-
 // reward choice after every assault, NEW HOSTILE intel cards as new

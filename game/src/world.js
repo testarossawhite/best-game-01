@@ -30,18 +30,18 @@ function canvasTexture(w, h, draw) {
 export function metalTexture() {
   const rnd = mulberry(1337);
   return canvasTexture(512, 512, (g, w, h) => {
-    g.fillStyle = '#39415a';
+    g.fillStyle = '#86a6cf';
     g.fillRect(0, 0, w, h);
     const panel = 128;
     for (let y = 0; y < h; y += panel) {
       for (let x = 0; x < w; x += panel) {
-        const tint = 0.88 + rnd() * 0.3;
-        g.fillStyle = `rgb(${58 * tint | 0},${66 * tint | 0},${88 * tint | 0})`;
+        const tint = 0.9 + rnd() * 0.24;
+        g.fillStyle = `rgb(${126 * tint | 0},${156 * tint | 0},${205 * tint | 0})`;
         g.fillRect(x + 2, y + 2, panel - 4, panel - 4);
-        g.strokeStyle = 'rgba(10,12,18,0.85)';
+        g.strokeStyle = 'rgba(52,72,110,0.55)';
         g.lineWidth = 3;
         g.strokeRect(x + 1, y + 1, panel - 2, panel - 2);
-        g.fillStyle = 'rgba(160,180,220,0.5)';
+        g.fillStyle = 'rgba(255,255,255,0.65)';
         for (const [rx, ry] of [[10, 10], [panel - 10, 10], [10, panel - 10], [panel - 10, panel - 10]]) {
           g.beginPath(); g.arc(x + rx, y + ry, 3, 0, 7); g.fill();
         }
@@ -94,24 +94,12 @@ function glowTexture(inner, outer) {
   });
 }
 
-function nebulaTexture(c1, c2) {
-  const rnd = mulberry(c1.length * 131 + c2.length);
-  return canvasTexture(256, 256, (g, w, h) => {
-    for (let i = 0; i < 46; i++) {
-      const x = 40 + rnd() * (w - 80), y = 40 + rnd() * (h - 80), r = 22 + rnd() * 62;
-      const grad = g.createRadialGradient(x, y, 1, x, y, r);
-      grad.addColorStop(0, rnd() > 0.5 ? c1 : c2);
-      grad.addColorStop(1, 'rgba(0,0,0,0)');
-      g.fillStyle = grad;
-      g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
-    }
-  });
-}
+
 
 function planetTexture() {
   const rnd = mulberry(42);
   return canvasTexture(256, 128, (g, w, h) => {
-    const bands = ['#3a4a7a', '#5a6fa8', '#2c3a63', '#7186bd', '#46598c', '#2c3a63', '#5a6fa8'];
+    const bands = ['#7ec3ea', '#b39df2', '#6fd3c0', '#ffcf87', '#a58ae0', '#7fd0e0', '#ffb98a'];
     let y = 0;
     for (const b of bands) {
       const bh = 10 + rnd() * 16;
@@ -129,7 +117,7 @@ function textSprite(text, color, scale = 1) {
     g.font = '700 34px system-ui, sans-serif';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    g.shadowColor = 'rgba(0,0,0,0.9)';
+    g.shadowColor = 'rgba(30,50,110,0.9)';
     g.shadowBlur = 8;
     g.fillStyle = color;
     g.fillText(text, w / 2, h / 2);
@@ -163,10 +151,10 @@ export function createWorld(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
+  renderer.toneMappingExposure = 1.24;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x04050d);
+  scene.background = new THREE.Color(0x63b3ff);
 
   const camera = new THREE.PerspectiveCamera(38, 16 / 9, 0.1, 900);
   camera.position.set(-2.5, 46, 41);
@@ -174,10 +162,10 @@ export function createWorld(canvas) {
 
   const world = { renderer, scene, camera, pulses: [], asteroids: [], plots: [], time: 0 };
 
-  // --- light: a dim ambient, a cool fill, and the star itself ---
-  scene.add(new THREE.HemisphereLight(0x9db4e0, 0x0a0c14, 1.05));
-  scene.add(new THREE.AmbientLight(0x2a3a5f, 0.7));
-  const fill = new THREE.DirectionalLight(0xaac4ff, 0.9);
+  // --- light: a bright sky dome bounce, warm sun fill, and the star ---
+  scene.add(new THREE.HemisphereLight(0xbfe3ff, 0xffe0b3, 1.5));
+  scene.add(new THREE.AmbientLight(0xfff2dd, 0.55));
+  const fill = new THREE.DirectionalLight(0xfff3d6, 1.6);
   fill.position.set(-30, 60, 50);
   scene.add(fill);
 
@@ -198,17 +186,25 @@ export function createWorld(canvas) {
 function backdropTexture() {
   const rnd = mulberry(4242);
   return canvasTexture(1024, 512, (g, w, h) => {
+    // Cheerful daytime sky: deep azure up top melting into a warm,
+    // hazy horizon, with a soft sun glow and puffy cartoon clouds.
     const grad = g.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, '#070818');
-    grad.addColorStop(0.45, '#0a0716');
-    grad.addColorStop(0.75, '#0d0a1e');
-    grad.addColorStop(1, '#04050d');
+    grad.addColorStop(0, '#2f7fe0');
+    grad.addColorStop(0.45, '#5ea9ff');
+    grad.addColorStop(0.75, '#8ec9ff');
+    grad.addColorStop(1, '#bfe0ff');
     g.fillStyle = grad;
     g.fillRect(0, 0, w, h);
+    const sun = g.createRadialGradient(w * 0.8, h * 0.16, 4, w * 0.8, h * 0.16, 190);
+    sun.addColorStop(0, 'rgba(255,250,215,0.95)');
+    sun.addColorStop(0.25, 'rgba(255,240,180,0.5)');
+    sun.addColorStop(1, 'rgba(255,240,180,0)');
+    g.fillStyle = sun;
+    g.fillRect(0, 0, w, h);
     const blobs = [
-      ['rgba(120,80,220,0.13)', 0.18, 0.52], ['rgba(255,140,60,0.11)', 0.78, 0.58],
-      ['rgba(40,160,190,0.10)', 0.45, 0.66], ['rgba(220,80,150,0.08)', 0.62, 0.44],
-      ['rgba(80,110,255,0.10)', 0.3, 0.72], ['rgba(255,170,80,0.07)', 0.9, 0.7],
+      ['rgba(255,255,255,0.30)', 0.18, 0.52], ['rgba(255,255,255,0.26)', 0.78, 0.58],
+      ['rgba(255,255,255,0.24)', 0.45, 0.66], ['rgba(255,235,250,0.20)', 0.62, 0.44],
+      ['rgba(255,255,255,0.22)', 0.3, 0.72], ['rgba(255,244,214,0.22)', 0.9, 0.7],
     ];
     for (const [c, fx, fy] of blobs) {
       for (let i = 0; i < 26; i++) {
@@ -221,22 +217,20 @@ function backdropTexture() {
         g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
       }
     }
-    // Milky-way smear.
-    g.save();
-    g.translate(w * 0.5, h * 0.6);
-    g.rotate(-0.32);
-    for (let i = 0; i < 700; i++) {
-      const x = (rnd() - 0.5) * w * 1.1, y = (rnd() - 0.5) * 44 * (1 - Math.abs(x) / (w * 0.6));
-      g.fillStyle = `rgba(200,212,255,${0.05 + rnd() * 0.16})`;
-      g.fillRect(x, y, 1.6, 1.6);
+    // Puffy cloud clusters: overlapping white ellipses with soft shade.
+    for (let i = 0; i < 34; i++) {
+      const cx = rnd() * w, cy = h * (0.22 + rnd() * 0.42), s = 22 + rnd() * 46;
+      for (let j = 0; j < 5; j++) {
+        const x = cx + (rnd() - 0.5) * s * 1.7, y = cy + (rnd() - 0.5) * s * 0.4;
+        g.fillStyle = `rgba(255,255,255,${0.22 + rnd() * 0.22})`;
+        g.beginPath(); g.ellipse(x, y, s * (0.5 + rnd() * 0.5), s * 0.36, 0, 0, 7); g.fill();
+      }
     }
-    g.restore();
-    for (let i = 0; i < 2400; i++) {
-      const x = rnd() * w, y = rnd() * h;
-      const bright = rnd();
-      g.fillStyle = bright > 0.92 ? 'rgba(255,240,210,0.95)' : bright > 0.7 ? 'rgba(210,225,255,0.85)' : 'rgba(235,240,255,0.55)';
-      const s = bright > 0.92 ? 2.2 : 1.3;
-      g.fillRect(x, y, s, s);
+    // A sparse daytime sparkle of far-off stars near the zenith.
+    for (let i = 0; i < 500; i++) {
+      const x = rnd() * w, y = rnd() * h * 0.4;
+      g.fillStyle = `rgba(255,255,255,${0.25 + rnd() * 0.4})`;
+      g.fillRect(x, y, 1.5, 1.5);
     }
   });
 }
@@ -246,7 +240,7 @@ function buildSpace(world) {
   const rnd = mulberry(2024);
   const dome = new THREE.Mesh(
     new THREE.SphereGeometry(470, 32, 20),
-    new THREE.MeshBasicMaterial({ map: backdropTexture(), side: THREE.BackSide, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ map: backdropTexture(), side: THREE.BackSide, depthWrite: false, toneMapped: false }),
   );
   scene.add(dome);
   // Star points, kept only where the base camera can actually see them
@@ -285,34 +279,18 @@ function buildSpace(world) {
     scene.add(pts);
     world.starLayers.push(pts);
   }
-  // Nebula clouds inside the view corridor (positions solved from the
-  // camera projection: at z=-110 the frame centre sits near y=-51).
-  const nebulae = [
-    ['rgba(255,150,60,0.50)', 'rgba(255,90,40,0.32)', 46, -46, -105, 120],
-    ['rgba(140,90,255,0.44)', 'rgba(80,60,200,0.28)', -48, -66, -125, 165],
-    ['rgba(40,180,200,0.38)', 'rgba(30,110,190,0.26)', 6, -36, -85, 92],
-    ['rgba(255,90,160,0.30)', 'rgba(150,50,200,0.22)', -8, -78, -140, 150],
-  ];
+  // (v4: the old deep-space nebula sprites are gone — they washed the
+  // bright sky out to grey. The painted dome carries the clouds now.)
   world.nebulae = [];
-  for (const [c1, c2, x, y, z, s] of nebulae) {
-    const spr = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: nebulaTexture(c1, c2), transparent: true, opacity: 0.8,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    spr.position.set(x, y, z);
-    spr.scale.set(s, s * 0.72, 1);
-    scene.add(spr);
-    world.nebulae.push(spr);
-  }
   // A distant banded planet, upper left of the frame.
   const planet = new THREE.Mesh(
     new THREE.SphereGeometry(13, 40, 28),
-    new THREE.MeshBasicMaterial({ map: planetTexture(), color: 0xaab6d8 }),
+    new THREE.MeshBasicMaterial({ map: planetTexture(), color: 0xffffff, toneMapped: false }),
   );
   planet.position.set(-64, -56, -112);
   scene.add(planet);
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: glowTexture('rgba(140,170,255,0.30)', 'rgba(90,120,255,0.12)'),
+    map: glowTexture('rgba(255,255,255,0.35)', 'rgba(190,220,255,0.14)'),
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
   }));
   halo.position.copy(planet.position);
@@ -320,7 +298,7 @@ function buildSpace(world) {
   scene.add(halo);
   world.planet = planet;
   // Drifting asteroids around the rim.
-  const rockMat = new THREE.MeshStandardMaterial({ color: 0x37312c, roughness: 0.95, flatShading: true });
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0x9a8468, roughness: 1, flatShading: true });
   const rockGeo = new THREE.DodecahedronGeometry(1, 0);
   for (let i = 0; i < 13; i++) {
     const rock = new THREE.Mesh(rockGeo, rockMat);
@@ -348,6 +326,27 @@ function buildSpace(world) {
     scene.add(m);
     world.meteors.push(m);
   }
+  // Sky-island dressing: a warm sunlit glow far below the floating deck
+  // and puffy cloud banks hugging its rim, so the forge reads as an
+  // arena adrift in a bright sky rather than a slab in the void.
+  const groundTex = canvasTexture(256, 256, (g, w, h) => {
+    const rg = g.createRadialGradient(128, 128, 8, 128, 128, 128);
+    rg.addColorStop(0, 'rgba(255,220,150,0.75)');
+    rg.addColorStop(0.45, 'rgba(255,190,100,0.25)');
+    rg.addColorStop(1, 'rgba(255,190,100,0)');
+    g.fillStyle = rg;
+    g.fillRect(0, 0, w, h);
+  });
+  const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(130, 40),
+    new THREE.MeshBasicMaterial({ map: groundTex, transparent: true, depthWrite: false }),
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set(-2.5, -110, 0);
+  scene.add(ground);
+  // (v4: rim cloud-puff sprites removed too — same grey wash problem;
+  // the dome's painted clouds are enough.)
+  world.cloudPuffs = [];
 }
 
 function buildDeck(world) {
@@ -355,20 +354,20 @@ function buildDeck(world) {
   const deckTex = metalTexture();
   deckTex.wrapS = deckTex.wrapT = THREE.RepeatWrapping;
   deckTex.repeat.set(3, 1.5);
-  const deckMat = new THREE.MeshStandardMaterial({ map: deckTex, roughness: 0.78, metalness: 0.35 });
+  const deckMat = new THREE.MeshStandardMaterial({ map: deckTex, roughness: 0.6, metalness: 0.15 });
   const deck = new THREE.Mesh(new THREE.BoxGeometry(68, 1.4, 33), deckMat);
   deck.position.set(-2.5, -0.7, 0);
   scene.add(deck);
-  // Rim: a glowing amber edge line and a darker hull below.
+  // Rim: a glowing amber edge line and a painted blue hull below.
   const hull = new THREE.Mesh(
     new THREE.BoxGeometry(66, 1.6, 31),
-    new THREE.MeshStandardMaterial({ color: 0x141824, roughness: 0.8, metalness: 0.4 }),
+    new THREE.MeshStandardMaterial({ color: 0x4a6ea8, roughness: 0.7, metalness: 0.2 }),
   );
   hull.position.set(-2.5, -2.2, 0);
   scene.add(hull);
   const rim = new THREE.LineSegments(
     new THREE.EdgesGeometry(new THREE.BoxGeometry(68.15, 0.5, 33.15)),
-    new THREE.LineBasicMaterial({ color: 0xff9e2c, transparent: true, opacity: 0.65 }),
+    new THREE.LineBasicMaterial({ color: 0xff9e2c, transparent: true, opacity: 0.9 }),
   );
   rim.position.set(-2.5, -0.25, 0);
   scene.add(rim);
@@ -385,9 +384,9 @@ function buildDeck(world) {
 
 function buildConduit(world) {
   const { scene } = world;
-  const chanMat = new THREE.MeshStandardMaterial({ color: 0x14100c, roughness: 0.9, metalness: 0.3 });
+  const chanMat = new THREE.MeshStandardMaterial({ color: 0x8a5a34, roughness: 0.75, metalness: 0.25 });
   const moltenMat = new THREE.MeshStandardMaterial({
-    color: 0x3a1500, emissive: 0xff7b00, emissiveIntensity: 2.3, roughness: 0.6,
+    color: 0xffa03c, emissive: 0xff8a1e, emissiveIntensity: 2.6, roughness: 0.6,
   });
   world.moltenMat = moltenMat;
   const chanGeo = new THREE.BoxGeometry(1, 0.14, 1.65);
@@ -435,7 +434,7 @@ function buildConduit(world) {
 
 function buildPlots(world) {
   const { scene } = world;
-  const padMat = new THREE.MeshStandardMaterial({ color: 0x1a2030, roughness: 0.7, metalness: 0.5 });
+  const padMat = new THREE.MeshStandardMaterial({ color: 0x5f83b8, roughness: 0.55, metalness: 0.3 });
   const padGeo = new THREE.CylinderGeometry(1.35, 1.5, 0.22, 24);
   const ringGeo = new THREE.TorusGeometry(1.35, 0.055, 8, 36);
   PLOTS.forEach((p, i) => {
@@ -446,7 +445,7 @@ function buildPlots(world) {
     pad.position.y = 0.11;
     grp.add(pad);
     const ringMat = new THREE.MeshStandardMaterial({
-      color: 0x0c2a38, emissive: 0x4dd8ff, emissiveIntensity: 0.55, roughness: 0.5,
+      color: 0x9fd8ef, emissive: 0x4dd8ff, emissiveIntensity: 0.55, roughness: 0.5,
     });
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = Math.PI / 2;
@@ -460,8 +459,8 @@ function buildPlots(world) {
 
 function buildProps(world) {
   const { scene } = world;
-  const metal = new THREE.MeshStandardMaterial({ color: 0x39415a, roughness: 0.55, metalness: 0.7 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x202634, roughness: 0.8, metalness: 0.4 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0x7d94bd, roughness: 0.45, metalness: 0.5 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x54677f, roughness: 0.7, metalness: 0.3 });
   world.animatedProps = [];
   for (const prop of PROPS) {
     const w = toWorld(prop.x, prop.y);
@@ -491,7 +490,7 @@ function buildProps(world) {
       const box = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.9, 0.9), dark);
       box.position.y = 0.45;
       grp.add(box);
-      const cellMat = new THREE.MeshStandardMaterial({ color: 0x08131a, emissive: 0x4dd8ff, emissiveIntensity: 1.4 });
+      const cellMat = new THREE.MeshStandardMaterial({ color: 0xdff4ff, emissive: 0x4dd8ff, emissiveIntensity: 1.4 });
       for (let i = 0; i < 3; i++) {
         const cell = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.55, 0.06), cellMat);
         cell.position.set(-0.5 + i * 0.5, 0.5, 0.47);
@@ -509,7 +508,7 @@ function buildProps(world) {
     } else if (prop.kind === 'drums') {
       for (let i = 0; i < 3; i++) {
         const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 1.0, 12),
-          new THREE.MeshStandardMaterial({ color: i === 1 ? 0x8a5a20 : 0x4a5468, roughness: 0.7, metalness: 0.5 }));
+          new THREE.MeshStandardMaterial({ color: i === 1 ? 0xe08a2e : 0x7d94bd, roughness: 0.6, metalness: 0.3 }));
         drum.position.set((i - 1) * 0.95, 0.5, (i === 1 ? -0.3 : 0.25));
         grp.add(drum);
       }
@@ -580,8 +579,8 @@ function buildStar(world) {
   const flareV = new THREE.Sprite(flareMat.clone());
   flareV.scale.set(0.55, 13, 1);
   grp.add(flareV);
-  // Containment: two dark gyroscope rings + clamps with emissive tips.
-  const ringMat = new THREE.MeshStandardMaterial({ color: 0x2a3040, roughness: 0.45, metalness: 0.85 });
+  // Containment: two golden gyroscope rings + clamps with emissive tips.
+  const ringMat = new THREE.MeshStandardMaterial({ color: 0xf5a623, roughness: 0.35, metalness: 0.6 });
   const ring1 = new THREE.Mesh(new THREE.TorusGeometry(3.55, 0.17, 10, 48), ringMat);
   ring1.rotation.x = Math.PI / 2.4;
   grp.add(ring1);
@@ -620,7 +619,7 @@ function buildShowcase(world) {
   grp.position.set(w.x, 0, w.z);
   const base = new THREE.Mesh(
     new THREE.CylinderGeometry(1.7, 1.95, 0.5, 28),
-    new THREE.MeshStandardMaterial({ color: 0x232a3c, roughness: 0.6, metalness: 0.6 }),
+    new THREE.MeshStandardMaterial({ color: 0x5f83b8, roughness: 0.5, metalness: 0.3 }),
   );
   base.position.y = 0.25;
   grp.add(base);
@@ -654,7 +653,7 @@ export function animateWorld(world, dt, t, starHealth = 1) {
   s.flareH.material.opacity = flarePulse;
   s.flareV.material.opacity = flarePulse * 0.8;
   if (world.starFlicker > 0) world.starFlicker = Math.max(0, world.starFlicker - dt * 1.6);
-  world.moltenMat.emissiveIntensity = 1.95 + Math.sin(t * 3.2) * 0.35;
+  world.moltenMat.emissiveIntensity = 2.45 + Math.sin(t * 3.2) * 0.35;
   for (const p of world.pulses) {
     const d = (p.userData.off + t * 130) % PATH_LENGTH;
     const pt = pathPointAt(d);
@@ -667,6 +666,12 @@ export function animateWorld(world, dt, t, starHealth = 1) {
     rock.position.x += rock.userData.drift * dt;
     if (rock.position.x > 70) rock.position.x = -70;
     if (rock.position.x < -70) rock.position.x = 70;
+  }
+  if (world.cloudPuffs) {
+    for (const puff of world.cloudPuffs) {
+      puff.position.x += puff.userData.drift * dt;
+      if (puff.position.x > 78) puff.position.x = -82;
+    }
   }
   for (const prop of world.animatedProps) {
     if (prop.kind === 'blink') prop.mat.emissiveIntensity = (Math.sin(t * 2.4) > 0.2 ? 2.2 : 0.15);

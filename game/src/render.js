@@ -287,7 +287,7 @@ function syncEnemies(R, state) {
     if (e.type === 'mender') view.model.inner.rotation.y = state.time * 1.2;
     const flashK = e.hitFlash > 0 ? e.hitFlash / 0.08 : 0;
     view.model.mats.body.emissiveIntensity = 0.25 + flashK * 1.8;
-    if (e.slowTimer > 0) view.model.mats.body.color.setHex(0x2a5a7a);
+    if (e.slowTimer > 0) view.model.mats.body.color.setHex(0x7cc4ea);
     else view.model.mats.body.color.setHex(view.baseColor);
     if (e.burnTimer > 0) view.model.mats.accent.emissiveIntensity = 2.6 + Math.sin(state.time * 31) * 0.8;
     else view.model.mats.accent.emissiveIntensity = 1.9;
@@ -340,7 +340,7 @@ function syncProjectiles(R, state) {
       } else if (p.kind === 'shell') {
         mesh = new THREE.Group();
         const ball = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 10),
-          new THREE.MeshStandardMaterial({ color: 0x3a2a20, emissive: 0xff7b00, emissiveIntensity: 1.6, roughness: 0.5 }));
+          new THREE.MeshStandardMaterial({ color: 0x6a4a30, emissive: 0xff7b00, emissiveIntensity: 1.6, roughness: 0.5 }));
         mesh.add(ball);
         mesh.add(glowSprite('rgba(255,160,70,0.85)', 1.3));
       } else { // rail

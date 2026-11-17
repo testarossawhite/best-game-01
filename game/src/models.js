@@ -11,14 +11,14 @@ const sph = (r, mat, w = 14, h = 10) => new THREE.Mesh(new THREE.SphereGeometry(
 const cone = (r, h, mat, seg = 10) => new THREE.Mesh(new THREE.ConeGeometry(r, h, seg), mat);
 const octa = (r, mat) => new THREE.Mesh(new THREE.OctahedronGeometry(r), mat);
 
-export const metalMat = (color, rough = 0.5, metal = 0.7) =>
+export const metalMat = (color, rough = 0.42, metal = 0.35) =>
   new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal });
 export const emissiveMat = (color, intensity = 2) =>
   new THREE.MeshStandardMaterial({ color: 0x0a0a12, emissive: color, emissiveIntensity: intensity, roughness: 0.4 });
 
 // ---------------------------------------------------------------- towers
 function towerBase(g, accent) {
-  const base = cyl(1.02, 1.22, 0.34, metalMat(0x39415a, 0.5, 0.75));
+  const base = cyl(1.02, 1.22, 0.34, metalMat(0x6480b0, 0.45, 0.4));
   base.position.y = 0.17;
   g.add(base);
   const trim = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.05, 8, 28), emissiveMat(accent, 1.1));
@@ -32,7 +32,7 @@ function buildBolt(level, spec) {
   const def = TOWER_TYPES.bolt;
   towerBase(g, def.color);
   const h = 1.35 + level * 0.34;
-  const spire = cyl(0.26, 0.58, h, metalMat(0x4a5878, 0.42, 0.8));
+  const spire = cyl(0.26, 0.58, h, metalMat(0x7d9cc9, 0.38, 0.45));
   spire.position.y = 0.34 + h / 2;
   g.add(spire);
   for (let i = 0; i <= level; i++) {
@@ -46,7 +46,7 @@ function buildBolt(level, spec) {
   const crystalMat = emissiveMat(0x7df9ff, 2.6);
   if (spec === 'dual') {
     for (const dx of [-0.3, 0.3]) {
-      const claw = box(0.16, 0.4, 0.16, metalMat(0x39415a));
+      const claw = box(0.16, 0.4, 0.16, metalMat(0x6480b0));
       claw.position.set(dx, -0.1, 0);
       head.add(claw);
       const cry = octa(0.24, crystalMat);
@@ -55,7 +55,7 @@ function buildBolt(level, spec) {
     }
   } else if (spec === 'rail') {
     for (const dz of [-0.17, 0.17]) {
-      const rail = box(1.7, 0.09, 0.09, metalMat(0x6a7ba8, 0.35, 0.9));
+      const rail = box(1.7, 0.09, 0.09, metalMat(0x9db8dd, 0.32, 0.5));
       rail.position.set(0.55, 0.05, dz);
       head.add(rail);
     }
@@ -63,7 +63,7 @@ function buildBolt(level, spec) {
     cry.position.set(0.1, 0.05, 0);
     head.add(cry);
   } else {
-    const claw = box(0.2, 0.46, 0.2, metalMat(0x39415a));
+    const claw = box(0.2, 0.46, 0.2, metalMat(0x6480b0));
     claw.position.y = -0.08;
     head.add(claw);
     const cry = octa(0.3 + level * 0.04, crystalMat);
@@ -81,8 +81,8 @@ function buildFrost(level, spec) {
   const tall = spec === 'deepfreeze' ? 0.55 : 0;
   const h = 1.9 + level * 0.3 + tall;
   const iceMat = new THREE.MeshStandardMaterial({
-    color: 0x9fd8f2, roughness: 0.22, metalness: 0.1, transparent: true, opacity: 0.94,
-    emissive: 0x2a6a9a, emissiveIntensity: 0.55,
+    color: 0xcfeeff, roughness: 0.22, metalness: 0.05, transparent: true, opacity: 0.94,
+    emissive: 0x7cc4ea, emissiveIntensity: 0.35,
   });
   const obelisk = cyl(0.3, spec === 'shatter' ? 0.78 : 0.6, h, iceMat, 4);
   obelisk.position.y = 0.34 + h / 2;
@@ -117,7 +117,7 @@ function buildMortar(level, spec) {
   let y = 0.34;
   for (let i = 0; i < tiers; i++) {
     const r = 0.78 - i * 0.16;
-    const tier = cyl(r, r + 0.1, 0.52, metalMat(i === 0 ? 0x4a4038 : 0x5a4a3a, 0.6, 0.6));
+    const tier = cyl(r, r + 0.1, 0.52, metalMat(i === 0 ? 0xb07a4a : 0xc98f56, 0.55, 0.3));
     tier.position.y = y + 0.26;
     g.add(tier);
     y += 0.52;
@@ -131,20 +131,20 @@ function buildMortar(level, spec) {
   if (spec === 'cluster') {
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2;
-      const tube = cyl(0.11, 0.13, 0.85, metalMat(0x39415a, 0.4, 0.85), 10);
+      const tube = cyl(0.11, 0.13, 0.85, metalMat(0x6480b0, 0.38, 0.45), 10);
       tube.position.set(Math.cos(a) * 0.3, 0.3, Math.sin(a) * 0.3);
       tube.rotation.z = -0.5;
       tube.rotation.y = -a;
       head.add(tube);
     }
   } else {
-    const tube = cyl(0.17, 0.21, 1.05, metalMat(0x39415a, 0.4, 0.85), 12);
+    const tube = cyl(0.17, 0.21, 1.05, metalMat(0x6480b0, 0.38, 0.45), 12);
     tube.position.set(0.18, 0.34, 0);
     tube.rotation.z = -0.6;
     head.add(tube);
     if (spec === 'napalm') {
       const tankMat = emissiveMat(0xff9e2c, 1.2);
-      const tank = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.5, 4, 10), metalMat(0x7a4a26, 0.5, 0.6));
+      const tank = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.5, 4, 10), metalMat(0xd98a3a, 0.45, 0.3));
       tank.position.set(-0.62, 0.1, 0.35);
       head.add(tank);
       const band = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.04, 8, 16), tankMat);
@@ -162,7 +162,7 @@ function buildTesla(level, spec) {
   const def = TOWER_TYPES.tesla;
   towerBase(g, def.color);
   const h = 2.0 + level * 0.3;
-  const mast = cyl(0.13, 0.2, h, metalMat(0x4a4368, 0.45, 0.8));
+  const mast = cyl(0.13, 0.2, h, metalMat(0x8a7cc0, 0.4, 0.4));
   mast.position.y = 0.34 + h / 2;
   g.add(mast);
   const ringMat = emissiveMat(0xb07dff, 1.7);
@@ -185,7 +185,7 @@ function buildTesla(level, spec) {
   }
   if (spec === 'storm') {
     for (const dz of [-0.85, 0.85]) {
-      const arm = box(0.1, 0.1, 0.8, metalMat(0x39415a));
+      const arm = box(0.1, 0.1, 0.8, metalMat(0x6480b0));
       arm.position.set(0, 0, dz * 0.55);
       head.add(arm);
       const side = sph(0.2, orbMat, 12, 10);
@@ -206,12 +206,12 @@ export function buildTowerModel(type, level, spec) {
 
 // ---------------------------------------------------------------- enemies
 function enemyMats(def) {
-  // Body in a mid-tone of the type's own colour so every construct reads
-  // as its hue even in shadow; the dark plate tone lives in the shading.
-  const mid = new THREE.Color(def.color).lerp(new THREE.Color(def.dark), 0.42);
+  // Body near the type's own vivid colour so every construct reads as a
+  // bright, chunky toy of its hue; the dark tone only shades the mix.
+  const mid = new THREE.Color(def.color).lerp(new THREE.Color(def.dark), 0.25);
   const body = new THREE.MeshStandardMaterial({
-    color: mid, roughness: 0.6, metalness: 0.25,
-    emissive: def.color, emissiveIntensity: 0.25,
+    color: mid, roughness: 0.55, metalness: 0.1,
+    emissive: def.color, emissiveIntensity: 0.32,
   });
   const accent = emissiveMat(def.color, 1.9);
   return { body, accent };
@@ -277,7 +277,7 @@ export function buildEnemyModel(type) {
     topY = 2.4;
   } else if (type === 'splitter') {
     const sac = sph(0.95, new THREE.MeshStandardMaterial({
-      color: def.dark, roughness: 0.35, metalness: 0.2, emissive: def.color, emissiveIntensity: 0.4,
+      color: def.color, roughness: 0.35, metalness: 0.1, emissive: def.color, emissiveIntensity: 0.3,
     }), 20, 16);
     sac.position.y = 1.0;
     sac.name = 'sac';
